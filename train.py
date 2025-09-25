@@ -7,6 +7,7 @@ import sumolib
 from datetime import datetime
 import json
 import argparse
+import signal
 
 from agent import D3QNAgent
 from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG
@@ -61,19 +62,12 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors, env):
     Computes the state representation from the observation vector, including neighbor data and lane speeds.
     """
     local_obs = obs[ts_id]
-    
-    # Per-lane queue lengths
     lane_queues = local_obs[QUEUE_START:QUEUE_END]
     
-    # Per-lane average speed
     lane_speeds = []
     for lane in env.traffic_signals[ts_id].lanes:
         lane_speeds.append(env.sumo.lane.getLastStepMeanSpeed(lane))
-    # Pad to max_lanes (assuming a max_lanes attribute exists on env)
-    # A more robust implementation might get max_lanes from the environment properties
-    # For now, we assume a fixed padding based on initial inspection if not available.
-    # This part needs to be robustly implemented based on env capabilities.
-    # Let's assume a max of 8 lanes for padding as a placeholder.
+    
     max_lanes_for_padding = 8 
     if hasattr(env, 'max_lanes'):
         max_lanes_for_padding = env.max_lanes
@@ -84,9 +78,7 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors, env):
     
     state = np.concatenate([lane_queues, lane_speeds, phase_one_hot])
 
-    # Get neighboring traffic lights using the corrected method
     neighbor_ids = get_neighboring_traffic_lights(net, ts_id)
-    
     num_neighbors = 0
     for neighbor_id in neighbor_ids:
         if neighbor_id in obs:
@@ -96,14 +88,12 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors, env):
             state = np.concatenate([state, neighbor_queue, neighbor_phase])
             num_neighbors += 1
 
-    # Pad with zeros for remaining potential neighbors
     padding_size = (max_neighbors - num_neighbors) * (NUM_LANES + NUM_PHASES)
     if padding_size > 0:
         state = np.concatenate([state, np.zeros(padding_size)])
 
     predicted_inflow = np.random.rand(gru_stub_dim)
     state = np.concatenate([state, predicted_inflow])
-    
     return state
 
 def compute_reward(env, obs, prev_obs, REWARD_CONFIG, prev_arrived):
@@ -148,6 +138,19 @@ def compute_reward(env, obs, prev_obs, REWARD_CONFIG, prev_arrived):
 
     return reward
 
+def save_checkpoint(episode, agent, log_dir):
+    """
+    Saves a training checkpoint.
+    """
+    checkpoint_path = os.path.join(log_dir, f"checkpoint_ep{episode}.pth")
+    torch.save({
+        'episode': episode,
+        'model_state_dict': agent.qnetwork_local.state_dict(),
+        'optimizer_state_dict': agent.optimizer.state_dict(),
+        'epsilon': agent.epsilon, # Assuming epsilon is tracked in the agent
+    }, checkpoint_path)
+    print(f"\nCheckpoint saved to {checkpoint_path}")
+
 def train(REWARD_CONFIG):
     """Main training loop."""
     log_dir = os.path.join(TRAINING_CONFIG["log_dir"], datetime.now().strftime('%Y%m%d-%H%M%S'))
@@ -182,8 +185,15 @@ def train(REWARD_CONFIG):
     AGENT_CONFIG["state_size"] = state_size
 
     agent = D3QNAgent(state_size=AGENT_CONFIG["state_size"], action_size=AGENT_CONFIG["action_size"])
-    epsilon = AGENT_CONFIG["epsilon_start"]
     best_reward = -np.inf
+
+    def signal_handler(sig, frame):
+        print('\nCaught Ctrl+C. Saving model and exiting...')
+        agent.save(TRAINING_CONFIG["model_save_path"])
+        env.close()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     for episode in range(1, TRAINING_CONFIG["episodes"] + 1):
         obs = env.reset()
@@ -204,7 +214,7 @@ def train(REWARD_CONFIG):
                     action_mask = np.array([1, 1])
 
                 states[ts_id] = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
-                meta_actions[ts_id] = agent.act(states[ts_id], epsilon, action_mask)
+                meta_actions[ts_id] = agent.act(states[ts_id], agent.epsilon, action_mask)
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
                 if meta_actions[ts_id] == 0:
@@ -225,14 +235,17 @@ def train(REWARD_CONFIG):
             obs = next_obs
             total_reward += reward
 
-        epsilon = max(AGENT_CONFIG["epsilon_end"], AGENT_CONFIG["epsilon_decay"] * epsilon)
+        agent.epsilon = max(AGENT_CONFIG["epsilon_end"], AGENT_CONFIG["epsilon_decay"] * agent.epsilon)
 
-        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | Total Reward: {total_reward:.2f} | Epsilon: {epsilon:.4f}")
+        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | Total Reward: {total_reward:.2f} | Epsilon: {agent.epsilon:.4f}")
 
         if total_reward > best_reward:
             best_reward = total_reward
             agent.save(TRAINING_CONFIG["model_save_path"])
             print(f"New best model saved with reward: {best_reward:.2f}")
+
+        if episode % TRAINING_CONFIG["save_checkpoint_every"] == 0:
+            save_checkpoint(episode, agent, log_dir)
 
     env.close()
 
