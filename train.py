@@ -159,7 +159,7 @@ def train(REWARD_CONFIG):
 
     env = sumo_rl.SumoEnvironment(
         net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='sumo_d3qn/data/4x4_diverse.rou.xml',
+        route_file='data/4x4_diverse.rou.xml',
         out_csv_name=os.path.join(log_dir, "output.csv"),
         use_gui=SUMO_CONFIG["gui"],
         num_seconds=SUMO_CONFIG["num_seconds"],

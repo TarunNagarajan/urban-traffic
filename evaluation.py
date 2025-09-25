@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     env = sumo_rl.SumoEnvironment(
         net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='sumo_d3qn/data/4x4_diverse.rou.xml',
+        route_file='data/4x4_diverse.rou.xml',
         out_csv_name=os.path.join(eval_log_dir, "temp_output.csv"),
         use_gui=False,
         num_seconds=SUMO_CONFIG["num_seconds"],
