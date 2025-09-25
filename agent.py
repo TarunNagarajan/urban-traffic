@@ -124,12 +124,13 @@ class D3QNAgent:
                 experiences = self.memory.sample()
                 self.learn(experiences, AGENT_CONFIG['gamma'])
 
-    def act(self, state, eps=0.):
+    def act(self, state, eps=0., action_mask=None):
         """
         Returns actions for given state as per current policy.
         Args:
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
+            action_mask (array_like): mask to apply to the actions
         """
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
@@ -137,11 +138,17 @@ class D3QNAgent:
             action_values = self.qnetwork_local(state)
         self.qnetwork_local.train()
 
+        # Apply action mask
+        if action_mask is not None:
+            action_values[action_mask == 0] = -1e8
+
         # Epsilon-greedy action selection
         if random.random() > eps:
             return np.argmax(action_values.cpu().data.numpy())
         else:
-            return random.choice(np.arange(self.action_size))
+            # Choose from valid actions only
+            valid_actions = np.where(action_mask == 1)[0] if action_mask is not None else np.arange(self.action_size)
+            return random.choice(valid_actions)
 
     def learn(self, experiences, gamma):
         """

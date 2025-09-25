@@ -42,8 +42,14 @@ def run_evaluation(env, net, agent=None, max_neighbors=0, details_output_path=No
         if agent is not None:
             action_dict = {}
             for ts_id in ts_ids:
+                # Action masking
+                if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
+                    action_mask = np.array([1, 0]) # Force "hold"
+                else:
+                    action_mask = np.array([1, 1]) # Allow "hold" and "switch"
+
                 state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
-                meta_action = agent.act(state, eps=0.0) # Act greedily
+                meta_action = agent.act(state, eps=0.0, action_mask=action_mask) # Act greedily
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
                 if meta_action == 0: # Hold
@@ -124,6 +130,7 @@ if __name__ == "__main__":
         num_seconds=SUMO_CONFIG["num_seconds"],
         delta_time=SUMO_CONFIG["delta_time"],
         yellow_time=SUMO_CONFIG["yellow_time"],
+        min_green=SUMO_CONFIG["min_green"],
         max_depart_delay=0,
         additional_sumo_cmd=f"--emission-output {os.path.join(eval_log_dir, 'emissions.xml')}"
     )

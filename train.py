@@ -147,6 +147,7 @@ def train():
         num_seconds=SUMO_CONFIG["num_seconds"],
         delta_time=SUMO_CONFIG["delta_time"],
         yellow_time=SUMO_CONFIG["yellow_time"],
+        min_green=SUMO_CONFIG["min_green"],
         max_depart_delay=0
     )
     
@@ -174,6 +175,7 @@ def train():
         obs = env.reset()
         total_reward = 0
         done = {"__all__": False}
+        prev_obs = obs
         
         while not done["__all__"]:
             action_dict = {}
@@ -181,8 +183,14 @@ def train():
             meta_actions = {}
             
             for ts_id in ts_ids:
+                # Action masking
+                if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
+                    action_mask = np.array([1, 0]) # Force "hold"
+                else:
+                    action_mask = np.array([1, 1]) # Allow "hold" and "switch"
+
                 states[ts_id] = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
-                meta_actions[ts_id] = agent.act(states[ts_id], epsilon)
+                meta_actions[ts_id] = agent.act(states[ts_id], epsilon, action_mask)
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
                 if meta_actions[ts_id] == 0: # Hold
@@ -192,12 +200,13 @@ def train():
 
             next_obs, _, done, _ = env.step(action_dict)
 
-            reward = compute_reward(env, next_obs, obs)
+            reward = compute_reward(env, next_obs, prev_obs)
             
             for ts_id in ts_ids:
                 next_state = compute_state(net, ts_id, next_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
                 agent.step(states[ts_id], meta_actions[ts_id], reward, next_state, done["__all__"])
 
+            prev_obs = obs
             obs = next_obs
             total_reward += reward
 
