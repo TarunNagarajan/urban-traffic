@@ -54,7 +54,7 @@ This project requires several Python packages. You can install them using `pip` 
 
 ### Training
 
-To train a new agent, run the `train.py` script. The script will train the agent for the number of episodes specified in `config.py` and save the best performing model to `models/d3qn_agent.pth`.
+To train a new agent, run the `train.py` script.
 
 ```bash
 python train.py
@@ -62,13 +62,11 @@ python train.py
 
 ### Evaluation & Statistics
 
-To evaluate a trained agent and generate statistics, run the `evaluation.py` script first, followed by the `plot_statistics.py` script.
-
 1.  **Run Evaluation:** This generates the raw data from the simulation.
     ```bash
     python evaluation.py
     ```
-2.  **Generate Plots and Statistics:** This processes the raw data and generates plots and summary statistics.
+2.  **Generate Plots and Statistics:** This processes the raw data.
     ```bash
     python plot_statistics.py
     ```
@@ -80,6 +78,28 @@ To find the best hyperparameters for the agent, run the `tune.py` script.
 ```bash
 python tune.py
 ```
+
+## Understanding the Simulation Output
+
+When you run any of the scripts that interact with SUMO (`train.py`, `evaluation.py`, `tune.py`), you will see a continuous stream of output from the SUMO engine itself. This provides real-time information about the simulation's performance.
+
+**Example Output Line:**
+```
+Step #1800.00 (3ms ~= 333.33*RT, ~89666.67UPS, TraCI: 187ms, vehicles TOT 2665 ACT 261 BUF
+```
+
+Here is a breakdown of what each part means:
+
+-   `Step #1800.00`: The current time in the simulation, in seconds.
+-   `(3ms ~= 333.33*RT)`:
+    -   `3ms`: The real-world time it took your computer to process this single simulation step.
+    -   `333.33*RT`: The real-time factor. This indicates that the simulation is currently running approximately 333 times faster than real life. A higher number is better.
+-   `~89666.67UPS`: "Updates Per Second". This is another measure of simulation speed, representing the number of vehicle updates the engine can perform per second.
+-   `TraCI: 187ms`: The time spent communicating with the TraCI (Traffic Control Interface). This is the overhead for the Python script to send commands to and receive data from SUMO.
+-   `vehicles TOT 2665 ACT 261 BUF`:
+    -   `TOT 2665`: The total number of vehicles that have entered the simulation since it began.
+    -   `ACT 261`: The number of "active" vehicles currently driving in the network.
+    -   `BUF`: The number of vehicles currently in a buffer, waiting to be inserted into the network at their scheduled departure time.
 
 ## Data and Output Files Format
 
