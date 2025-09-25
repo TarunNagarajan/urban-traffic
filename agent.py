@@ -141,7 +141,9 @@ class D3QNAgent:
 
         # Apply action mask
         if action_mask is not None:
-            action_values[action_mask == 0] = -1e8
+            # Convert numpy mask to torch tensor and reshape to match action_values
+            action_mask_tensor = torch.from_numpy(action_mask).bool().unsqueeze(0).to(self.device)
+            action_values[~action_mask_tensor] = -1e8 # Mask invalid actions
 
         # Epsilon-greedy action selection
         if random.random() > eps:
