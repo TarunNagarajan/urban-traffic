@@ -10,7 +10,7 @@ import argparse
 import signal
 
 from agent import D3QNAgent
-from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG
+from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION
 
 # --- Constants based on environment inspection ---
 NUM_PHASES = 2
