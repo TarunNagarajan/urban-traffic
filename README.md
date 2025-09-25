@@ -8,6 +8,7 @@ This project utilizes a Deep Reinforcement Learning agent to manage traffic flow
 - **Communication-Enabled Agents:** Agents communicate by sharing state information with their immediate neighbors, allowing for more coordinated and intelligent traffic management.
 - **Generalizable Architecture:** The solution is designed to be flexible and can be applied to any road network topology defined in a SUMO `.net.xml` file.
 - **D3QN Agent:** Employs a Dueling Double Deep Q-Network for efficient learning and decision-making.
+- **Configurable Reward Functions:** Easily switch between different reward strategies using command-line flags.
 - **Hyperparameter Tuning:** Includes a script to automatically tune the agent's hyperparameters using Optuna.
 - **Advanced Statistics:** Provides a framework for detailed performance analysis, including statistics on fuel consumption, waiting times, and rewards.
 
@@ -52,32 +53,68 @@ This project requires several Python packages. You can install them using `pip` 
 
 ## Usage
 
+The `train.py` and `evaluation.py` scripts now accept a `--config` flag to specify which reward function configuration to use.
+
 ### Training
 
-To train a new agent, run the `train.py` script.
+To train a new agent, run the `train.py` script with your chosen configuration.
 
+**Train with the default (queue-based) reward function:**
 ```bash
-python train.py
+python train.py --config default
+```
+
+**Train with the state-of-the-art (pressure-based) reward function:**
+```bash
+python train.py --config state_of_the_art
 ```
 
 ### Evaluation & Statistics
 
-1.  **Run Evaluation:** This generates the raw data from the simulation.
+1.  **Run Evaluation:** Use the same `--config` flag to ensure you are evaluating with the same reward structure used in training.
     ```bash
-    python evaluation.py
+    python evaluation.py --config state_of_the_art
     ```
-2.  **Generate Plots and Statistics:** This processes the raw data.
+2.  **Generate Plots and Statistics:** This script uses the data generated in the previous step.
     ```bash
     python plot_statistics.py
     ```
 
 ### Hyperparameter Tuning
 
-To find the best hyperparameters for the agent, run the `tune.py` script.
-
+The `tune.py` script is currently set up to tune the `default` reward configuration.
 ```bash
 python tune.py
 ```
+
+## Reward Function Configurations
+
+This project uses a modular system that allows you to easily define and switch between different reward functions. The configurations are stored as JSON files in the `configs/` directory.
+
+You can select a configuration by using the `--config <config_name>` flag when running `train.py` or `evaluation.py`.
+
+### Included Configurations
+
+1.  **`default.json`**
+    *   **Focus:** Minimizing vehicle queue length and penalizing frequent phase switches (jerk).
+    *   **Use Case:** This is a solid, intuitive baseline configuration. The weights for `queue_length_weight` and `jerk_penalty` are based on the results of a partial hyperparameter tuning run.
+
+2.  **`state_of_the_art.json`**
+    *   **Focus:** A more advanced model based on current research, which combines multiple metrics.
+    *   **Components:**
+        *   **Pressure:** The primary driver, aims to balance traffic flow across intersections.
+        *   **Throughput:** Positively rewards the agent for getting cars to their destination.
+        *   **Penalties:** Includes penalties for phase switching (jerk), virtual pedestrians, and fuel consumption.
+    *   **Use Case:** This is the recommended configuration for achieving the best overall performance.
+
+### Creating a Custom Configuration
+
+You can easily create your own reward function by adding a new JSON file to the `configs/` directory.
+
+1.  Create a new file (e.g., `my_config.json`).
+2.  Copy the structure from an existing config file.
+3.  Set the `use_...` flags to `true` or `false` and adjust the weights for the components you want to experiment with.
+4.  Run the training with your new config: `python train.py --config my_config`.
 
 ## Developing with Synthetic Data
 
@@ -99,7 +136,7 @@ The evaluation process generates several files. Here is a detailed explanation o
 
 These files provide a high-level summary of the simulation's performance at each step.
 
-| Column                      | Explanation                                                                                             |
+| Column                      | Layman's Explanation                                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `step`                      | The timestamp of the simulation in seconds.                                                                      |
 | `system_total_stopped`      | The total number of cars that are completely stopped (speed is near zero) across the entire map at this moment.    |
@@ -112,7 +149,7 @@ These files provide a high-level summary of the simulation's performance at each
 
 These files provide granular, step-by-step data for each individual intersection, making them ideal for detailed analysis and dashboard creation.
 
-| Column                | Explanation                                                                                                                            |
+| Column                | Layman's Explanation                                                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `step`                | The timestamp of the simulation in seconds.                                                                                                     |
 | `reward`              | The overall "score" for the system at this step. It's a negative number based on congestion, so a value closer to zero is better.                 |
@@ -130,7 +167,7 @@ This file contains detailed environmental data for every vehicle. This is the so
 <emission-export>
     <timestep time="0.00">
         <vehicle id="..." CO2="..." fuel="..." />
-        ... 
+        ...
     </timestep>
 </emission-export>
 ```
