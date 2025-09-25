@@ -56,16 +56,37 @@ def get_neighboring_traffic_lights(net, ts_id):
         print(f"Warning: Could not find neighbors for {ts_id}: {e}")
         return []
 
-def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors):
+def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors, env):
     """
-    Computes the state representation from the observation vector, including neighbor data.
+    Computes the state representation from the observation vector, including neighbor data and lane speeds.
     """
     local_obs = obs[ts_id]
-    phase_one_hot = local_obs[PHASE_START:PHASE_END]
-    local_queue = local_obs[QUEUE_START:QUEUE_END]
-    state = np.concatenate([local_queue, phase_one_hot])
+    
+    # Per-lane queue lengths
+    lane_queues = local_obs[QUEUE_START:QUEUE_END]
+    
+    # Per-lane average speed
+    lane_speeds = []
+    for lane in env.traffic_signals[ts_id].lanes:
+        lane_speeds.append(env.sumo.lane.getLastStepMeanSpeed(lane))
+    # Pad to max_lanes (assuming a max_lanes attribute exists on env)
+    # A more robust implementation might get max_lanes from the environment properties
+    # For now, we assume a fixed padding based on initial inspection if not available.
+    # This part needs to be robustly implemented based on env capabilities.
+    # Let's assume a max of 8 lanes for padding as a placeholder.
+    max_lanes_for_padding = 8 
+    if hasattr(env, 'max_lanes'):
+        max_lanes_for_padding = env.max_lanes
+    lane_speeds.extend([-1] * (max_lanes_for_padding - len(lane_speeds)))
+    lane_speeds = np.array(lane_speeds)
 
+    phase_one_hot = local_obs[PHASE_START:PHASE_END]
+    
+    state = np.concatenate([lane_queues, lane_speeds, phase_one_hot])
+
+    # Get neighboring traffic lights using the corrected method
     neighbor_ids = get_neighboring_traffic_lights(net, ts_id)
+    
     num_neighbors = 0
     for neighbor_id in neighbor_ids:
         if neighbor_id in obs:
@@ -75,12 +96,14 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors):
             state = np.concatenate([state, neighbor_queue, neighbor_phase])
             num_neighbors += 1
 
+    # Pad with zeros for remaining potential neighbors
     padding_size = (max_neighbors - num_neighbors) * (NUM_LANES + NUM_PHASES)
     if padding_size > 0:
         state = np.concatenate([state, np.zeros(padding_size)])
 
     predicted_inflow = np.random.rand(gru_stub_dim)
     state = np.concatenate([state, predicted_inflow])
+    
     return state
 
 def compute_reward(env, obs, prev_obs, REWARD_CONFIG, prev_arrived):
@@ -155,7 +178,7 @@ def train(REWARD_CONFIG):
             max_neighbors = len(neighbors)
 
     first_ts_id = ts_ids[0]
-    state_size = compute_state(net, first_ts_id, initial_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors).shape[0]
+    state_size = compute_state(net, first_ts_id, initial_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env).shape[0]
     AGENT_CONFIG["state_size"] = state_size
 
     agent = D3QNAgent(state_size=AGENT_CONFIG["state_size"], action_size=AGENT_CONFIG["action_size"])
@@ -180,7 +203,7 @@ def train(REWARD_CONFIG):
                 else:
                     action_mask = np.array([1, 1])
 
-                states[ts_id] = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
+                states[ts_id] = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
                 meta_actions[ts_id] = agent.act(states[ts_id], epsilon, action_mask)
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
@@ -195,7 +218,7 @@ def train(REWARD_CONFIG):
             prev_arrived = env.sumo.simulation.getArrivedNumber()
             
             for ts_id in ts_ids:
-                next_state = compute_state(net, ts_id, next_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
+                next_state = compute_state(net, ts_id, next_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
                 agent.step(states[ts_id], meta_actions[ts_id], reward, next_state, done["__all__"])
 
             prev_obs = obs

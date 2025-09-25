@@ -43,7 +43,7 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
                 else:
                     action_mask = np.array([1, 1])
 
-                state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
+                state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
                 meta_action = agent.act(state, eps=0.0, action_mask=action_mask)
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
@@ -51,7 +51,6 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
                     action_dict[ts_id] = current_phase
                 else:
                     action_dict[ts_id] = (current_phase + 1) % NUM_PHASES
-                action_dict[ts_id] = action
         else:
             action_dict = {}
 
@@ -156,7 +155,7 @@ if __name__ == "__main__":
             max_neighbors = len(neighbors)
 
     first_ts_id = ts_ids[0]
-    state_size = compute_state(net, first_ts_id, initial_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors).shape[0]
+    state_size = compute_state(net, first_ts_id, initial_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env).shape[0]
     
     agent = D3QNAgent(state_size=state_size, action_size=AGENT_CONFIG["action_size"])
     model_path = TRAINING_CONFIG["model_save_path"]
