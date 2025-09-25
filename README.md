@@ -99,7 +99,7 @@ The evaluation process generates several files. Here is a detailed explanation o
 
 These files provide a high-level summary of the simulation's performance at each step.
 
-| Column                      | Layman's Explanation                                                                                             |
+| Column                      | Explanation                                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `step`                      | The timestamp of the simulation in seconds.                                                                      |
 | `system_total_stopped`      | The total number of cars that are completely stopped (speed is near zero) across the entire map at this moment.    |
@@ -112,7 +112,7 @@ These files provide a high-level summary of the simulation's performance at each
 
 These files provide granular, step-by-step data for each individual intersection, making them ideal for detailed analysis and dashboard creation.
 
-| Column                | Layman's Explanation                                                                                                                            |
+| Column                | Explanation                                                                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `step`                | The timestamp of the simulation in seconds.                                                                                                     |
 | `reward`              | The overall "score" for the system at this step. It's a negative number based on congestion, so a value closer to zero is better.                 |
