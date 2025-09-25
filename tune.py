@@ -53,7 +53,7 @@ def objective(trial, REWARD_CONFIG):
     # --- 2. Run Training ---
     env = sumo_rl.SumoEnvironment(
         net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4c1.rou.xml',
+        route_file='sumo_d3qn/data/4x4_diverse.rou.xml',
         use_gui=False,
         num_seconds=900, # Shorter simulation for 12-hour run
         delta_time=SUMO_CONFIG["delta_time"],
