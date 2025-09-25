@@ -111,25 +111,30 @@ def compute_reward(env, obs, prev_obs):
     """
     Computes a global reward based on the sum of queue lengths, virtual pedestrian waiting time, and fuel consumption.
     """
-    total_queue = 0
-    virtual_pedestrian_wait = 0
-    for ts_id in obs.keys():
-        total_queue += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
-        virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END]) # Heuristic for pedestrian waiting
+    reward = 0
     
-    reward = total_queue * REWARD_CONFIG["queue_length_weight"]
-    reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
-    
-    # Fuel consumption penalty
-    total_fuel_consumption = 0
-    for veh_id in env.sumo.vehicle.getIDList():
-        total_fuel_consumption += env.sumo.vehicle.getFuelConsumption(veh_id)
-    reward += total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
+    if REWARD_CONFIG["use_queue_length"]:
+        total_queue = 0
+        for ts_id in obs.keys():
+            total_queue += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
+        reward += total_queue * REWARD_CONFIG["queue_length_weight"]
 
-    # Optional: Add jerk penalty for each intersection
-    for ts_id in obs.keys():
-        if np.argmax(obs[ts_id][PHASE_START:PHASE_END]) != np.argmax(prev_obs[ts_id][PHASE_START:PHASE_END]):
-            reward += REWARD_CONFIG["jerk_penalty"]
+    if REWARD_CONFIG["use_virtual_pedestrian_penalty"]:
+        virtual_pedestrian_wait = 0
+        for ts_id in obs.keys():
+            virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END]) # Heuristic for pedestrian waiting
+        reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
+
+    if REWARD_CONFIG["use_fuel_consumption_penalty"]:
+        total_fuel_consumption = 0
+        for veh_id in env.sumo.vehicle.getIDList():
+            total_fuel_consumption += env.sumo.vehicle.getFuelConsumption(veh_id)
+        reward += total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
+
+    if REWARD_CONFIG["use_jerk_penalty"]:
+        for ts_id in obs.keys():
+            if np.argmax(obs[ts_id][PHASE_START:PHASE_END]) != np.argmax(prev_obs[ts_id][PHASE_START:PHASE_END]):
+                reward += REWARD_CONFIG["jerk_penalty"]
 
     return reward
 

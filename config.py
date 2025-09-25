@@ -28,8 +28,8 @@ AGENT_CONFIG = {
     "action_size": 2,  # 0: HOLD_PHASE, 1: SWITCH_PHASE
     "buffer_size": int(1e5),  # Replay buffer size
     "batch_size": 64,  # Minibatch size
-    "gamma": 0.99,  # Discount factor
-    "lr": 5e-4,  # Learning rate
+    "gamma": 0.9958,  # Discount factor
+    "lr": 0.0003,  # Learning rate
     "tau": 1e-3,  # For soft update of target parameters
     "update_every": 4,  # How often to update the network
     "epsilon_start": 1.0,  # Starting value of epsilon
@@ -38,8 +38,8 @@ AGENT_CONFIG = {
     "device": "cuda" if torch.cuda.is_available() else "cpu",
 
     # Dueling DQN Network
-    "fc1_units": 64,
-    "fc2_units": 64,
+    "fc1_units": 128,
+    "fc2_units": 128,
 }
 
 TRAINING_CONFIG = {
@@ -52,13 +52,14 @@ TRAINING_CONFIG = {
 
 REWARD_CONFIG = {
     # Weights for the reward function components
+    "use_queue_length": True,
     "queue_length_weight": -0.1,
-    "waiting_time_weight": -0.1,
-    "throughput_weight": 1.0,
-    "pedestrian_wait_penalty": -0.5,
-    "jerk_penalty": -0.2, # Penalty for frequent switching
-    "virtual_pedestrian_penalty": -0.2, # Penalty for virtual pedestrian waiting time
-    "fuel_consumption_penalty": -0.1, # Penalty for fuel consumption
+    "use_jerk_penalty": True,
+    "jerk_penalty": -0.329,
+    "use_virtual_pedestrian_penalty": True,
+    "virtual_pedestrian_penalty": -0.2,
+    "use_fuel_consumption_penalty": True,
+    "fuel_consumption_penalty": -0.1,
 }
 
 # Placeholder for GRU-based inflow prediction
