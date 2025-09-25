@@ -112,10 +112,13 @@ def compute_reward(obs, prev_obs):
     Computes a global reward based on the sum of queue lengths across all intersections.
     """
     total_queue = 0
+    virtual_pedestrian_wait = 0
     for ts_id in obs.keys():
         total_queue += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
+        virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END]) # Heuristic for pedestrian waiting
     
     reward = total_queue * REWARD_CONFIG["queue_length_weight"]
+    reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
     
     # Optional: Add jerk penalty for each intersection
     for ts_id in obs.keys():

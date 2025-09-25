@@ -56,6 +56,7 @@ REWARD_CONFIG = {
     "throughput_weight": 1.0,
     "pedestrian_wait_penalty": -0.5,
     "jerk_penalty": -0.2, # Penalty for frequent switching
+    "virtual_pedestrian_penalty": -0.2, # Penalty for virtual pedestrian waiting time
 }
 
 # Placeholder for GRU-based inflow prediction
