@@ -79,7 +79,7 @@ To find the best hyperparameters for the agent, run the `tune.py` script.
 python tune.py
 ```
 
-### Developing with Synthetic Data
+## Developing with Synthetic Data
 
 To facilitate the development of the dashboard and the `plot_statistics.py` script, a set of synthetic data files has been generated in the `logs/evaluation` directory. This allows developers to build and test the data analysis and visualization features without needing to wait for a full training or evaluation run to complete.
 
@@ -90,6 +90,55 @@ python plot_statistics.py
 ```
 
 This will use the pre-generated synthetic data to produce the summary statistics and the example rolling reward plot. A developer can modify the `plot_statistics.py` script and re-run it to see the results of the changes on the sample data.
+
+### Understanding the Synthetic Data Files
+
+The evaluation process generates several files. Here is a detailed explanation of what each file contains.
+
+#### `d3qn_results.csv` / `baseline_results.csv`
+
+These files provide a high-level summary of the simulation's performance at each step.
+
+| Column                      | Layman's Explanation                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `step`                      | The timestamp of the simulation in seconds.                                                                      |
+| `system_total_stopped`      | The total number of cars that are completely stopped (speed is near zero) across the entire map at this moment.    |
+| `system_total_waiting_time` | The combined total waiting time (in seconds) of every single car in the simulation up to this point.               |
+| `system_mean_waiting_time`  | The average waiting time for a single car. This gives a better sense of the typical driver's experience.           |
+| `system_mean_speed`         | The average speed of all cars on the map at this moment (in meters/second). Higher is generally better.            |
+| `system_mean_queue_length`  | The average number of cars waiting in a line at all traffic light lanes. Lower is better.                        |
+
+#### `d3qn_details.csv` / `baseline_details.csv`
+
+These files provide granular, step-by-step data for each individual intersection, making them ideal for detailed analysis and dashboard creation.
+
+| Column                | Layman's Explanation                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `step`                | The timestamp of the simulation in seconds.                                                                                                     |
+| `reward`              | The overall "score" for the system at this step. It's a negative number based on congestion, so a value closer to zero is better.                 |
+| `{ts_id}_phase`       | Which direction of traffic has the green light at a specific intersection (`ts_id`). The number represents a specific pre-defined traffic movement. |
+| `{ts_id}_total_queue` | The number of cars waiting in line at that specific intersection.                                                                               |
+
+*(The `{ts_id}` will be replaced by the actual ID of each traffic light in the network, e.g., `gneJ0_phase`)*
+
+#### `emissions.xml`
+
+This file contains detailed environmental data for every vehicle. This is the source for calculating the project's impact on fuel economy.
+
+**Structure:**
+```xml
+<emission-export>
+    <timestep time="0.00">
+        <vehicle id="..." CO2="..." fuel="..." />
+        ... 
+    </timestep>
+</emission-export>
+```
+-   **`timestep`**: A snapshot of the simulation at a specific time.
+-   **`vehicle`**: Represents a single car.
+    -   `id`: The unique ID of the car.
+    -   `CO2`: The CO2 emissions of the car at this timestep (in mg/s).
+    -   `fuel`: The fuel consumption of the car at this timestep (in ml/s).
 
 ## Understanding the Simulation Output
 
@@ -112,55 +161,6 @@ Here is a breakdown of what each part means:
     -   `TOT 2665`: The total number of vehicles that have entered the simulation since it began.
     -   `ACT 261`: The number of "active" vehicles currently driving in the network.
     -   `BUF`: The number of vehicles currently in a buffer, waiting to be inserted into the network at their scheduled departure time.
-
-## Data and Output Files Format
-
-The evaluation process generates several files in the `logs/evaluation/` directory. These files are designed to be consumed by the `plot_statistics.py` script and for your own custom analysis.
-
-### `d3qn_results.csv` / `baseline_results.csv`
-
-These files are generated by the `sumo-rl` library and contain high-level, system-wide metrics for each step of the simulation.
-
-| Column                      | Description                                                                 |
-| --------------------------- | --------------------------------------------------------------------------- |
-| `step`                      | The simulation step number.                                                 |
-| `system_total_stopped`      | Total number of vehicles stopped in the entire network.                     |
-| `system_total_waiting_time` | Sum of the waiting time for all vehicles in the network.                    |
-| `system_mean_waiting_time`  | Average waiting time per vehicle in the network.                            |
-| `system_mean_speed`         | Average speed of all vehicles in the network (m/s).                         |
-| `system_mean_queue_length`  | Average queue length over all lanes in the network.                         |
-| ...                         | Other system-level metrics.                                                 |
-
-### `d3qn_details.csv` / `baseline_details.csv`
-
-These files provide more granular, step-by-step data that is collected during the evaluation run. This is the primary source of data for custom plots and statistics.
-
-| Column                | Description                                                              |
-| --------------------- | ------------------------------------------------------------------------ |
-| `step`                | The simulation step number.                                              |
-| `reward`              | The global reward for the entire system at this step.                    |
-| `{ts_id}_phase`       | The integer index of the active green phase for a specific traffic light. |
-| `{ts_id}_total_queue` | The total number of vehicles queued at a specific traffic light.         |
-
-*(The `{ts_id}` will be replaced by the actual ID of each traffic light in the network, e.g., `gneJ0_phase`)*
-
-### `emissions.xml`
-
-This XML file contains detailed emission data for every vehicle at every step of the simulation. It is useful for calculating fuel consumption and other environmental metrics.
-
-**Structure:**
-```xml
-<emission-export>
-    <timestep time="0.00">
-        <vehicle id="..." CO2="..." fuel="..." />
-        <vehicle id="..." CO2="..." fuel="..." />
-        ...
-    </timestep>
-    <timestep time="1.00">
-        ...
-    </timestep>
-</emission-export>
-```
 
 ## Advanced Statistics and Visualization
 
