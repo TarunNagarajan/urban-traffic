@@ -5,13 +5,14 @@ import sumo_rl
 import sumolib
 import torch
 import numpy as np
+import csv
 
 from agent import D3QNAgent
 from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, STUB_GRU_PREDICTION
 # Import the state computation function and constants from train.py
-from train import compute_state, get_neighboring_traffic_lights, NUM_PHASES, PHASE_START, PHASE_END
+from train import compute_state, get_neighboring_traffic_lights, compute_reward, NUM_PHASES, PHASE_START, PHASE_END
 
-def run_evaluation(env, net, agent=None, max_neighbors=0):
+def run_evaluation(env, net, agent=None, max_neighbors=0, output_path=None):
     """
     Runs a single evaluation loop for a given environment and agent/baseline.
 
@@ -20,11 +21,15 @@ def run_evaluation(env, net, agent=None, max_neighbors=0):
         net (sumolib.net.Net): The SUMO network.
         agent (D3QNAgent, optional): The trained agent. If None, runs baseline.
         max_neighbors (int): The maximum number of neighbors for padding the state.
+        output_path (str, optional): Path to save detailed reward data.
     """
     obs = env.reset()
     done = {"__all__": False}
     ts_ids = list(obs.keys())
-
+    
+    rewards = []
+    prev_obs = obs
+    
     while not done["__all__"]:
         if agent is not None:
             action_dict = {}
@@ -42,8 +47,20 @@ def run_evaluation(env, net, agent=None, max_neighbors=0):
             # For baseline, step with an empty action dict
             action_dict = {}
 
-        obs, _, done, _ = env.step(action_dict)
+        next_obs, _, done, _ = env.step(action_dict)
         
+        reward = compute_reward(next_obs, obs)
+        rewards.append(reward)
+        
+        obs = next_obs
+
+    if output_path:
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['step', 'reward'])
+            for i, r in enumerate(rewards):
+                writer.writerow([i, r])
+                
     return env.out_csv_name
 
 def plot_results(rl_csv, baseline_csv, log_dir):
@@ -95,7 +112,8 @@ if __name__ == "__main__":
         num_seconds=SUMO_CONFIG["num_seconds"],
         delta_time=SUMO_CONFIG["delta_time"],
         yellow_time=SUMO_CONFIG["yellow_time"],
-        max_depart_delay=0
+        max_depart_delay=0,
+        additional_sumo_cmd=f"--emission-output {os.path.join(eval_log_dir, 'emissions.xml')}"
     )
     
     net = sumolib.net.readNet(env._net)
@@ -122,7 +140,8 @@ if __name__ == "__main__":
     if os.path.exists(model_path):
         agent.qnetwork_local.load_state_dict(torch.load(model_path))
         env.out_csv_name = os.path.join(eval_log_dir, "d3qn_results.csv")
-        rl_csv_path = run_evaluation(env, net, agent, max_neighbors)
+        rl_reward_path = os.path.join(eval_log_dir, "d3qn_rewards.csv")
+        rl_csv_path = run_evaluation(env, net, agent, max_neighbors, rl_reward_path)
         print(f"D3QN Agent evaluation complete. Results saved to {rl_csv_path}")
     else:
         print(f"Error: Model not found at {model_path}. Please run train.py first.")
@@ -130,7 +149,8 @@ if __name__ == "__main__":
     # --- Fixed-Time Baseline Evaluation ---
     print("Evaluating Fixed-Time Baseline...")
     env.out_csv_name = os.path.join(eval_log_dir, "baseline_results.csv")
-    baseline_csv_path = run_evaluation(env, net, agent=None)
+    baseline_reward_path = os.path.join(eval_log_dir, "baseline_rewards.csv")
+    baseline_csv_path = run_evaluation(env, net, agent=None, output_path=baseline_reward_path)
     print(f"Baseline evaluation complete. Results saved to {baseline_csv_path}")
 
     # --- Plotting ---

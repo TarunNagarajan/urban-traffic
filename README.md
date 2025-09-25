@@ -118,3 +118,77 @@ After the tuning is complete, you will find the following in the `sumo_d3qn/tuni
 1.  **`best_hyperparameters.txt`**: A text file containing the best set of hyperparameters found.
 2.  **`optimization_history.html`**: An interactive plot showing the progress of the optimization. You can open this in your browser to see how the score improved over time.
 3.  **`param_importances.html`**: An interactive plot showing which hyperparameters had the most impact on the final score.
+
+## Advanced Statistics and Visualization
+
+For a more in-depth analysis of the agent's performance, a `plot_statistics.py` script is provided. This script generates advanced comparison plots beyond the default waiting time and queue length.
+
+### Workflow
+
+1.  **Run Evaluation:** First, run the evaluation script to generate the necessary data files.
+    ```bash
+    python evaluation.py
+    ```
+    This will create several files in the `logs/evaluation` directory, including `d3qn_rewards.csv`, `baseline_rewards.csv`, and `emissions.xml`.
+
+2.  **Generate Plots:** Next, run the `plot_statistics.py` script.
+    ```bash
+    python plot_statistics.py
+    ```
+    This will read the data from the `logs/evaluation` directory and generate new comparison plots, such as the rolling reward comparison.
+
+### How to Add a New Statistic/Plot
+
+The `plot_statistics.py` script is designed to be easily extensible. Here is a guide on how to add a new plot, using "Average Speed" as an example.
+
+1.  **Open `plot_statistics.py`:** Open the script in your code editor.
+
+2.  **Create a New Plotting Function:** Add a new Python function that takes the necessary data files as input. For average speed, we need the main simulation output files.
+
+    ```python
+    def plot_average_speed(rl_sim_csv, baseline_sim_csv, output_dir):
+        """
+        Plots the average system speed for both the D3QN agent and the baseline.
+        """
+        # Step 1: Load the data from the CSV files
+        # The separator is a semicolon ';'
+        rl_df = pd.read_csv(rl_sim_csv, sep=';')
+        baseline_df = pd.read_csv(baseline_sim_csv, sep=';')
+
+        # Step 2: Create the plot
+        plt.figure(figsize=(12, 6))
+        
+        # Plot the 'system_mean_speed' column for both dataframes
+        plt.plot(rl_df['step'], rl_df['system_mean_speed'], label='D3QN Agent')
+        plt.plot(baseline_df['step'], baseline_df['system_mean_speed'], label='Fixed-Time Baseline')
+        
+        # Step 3: Add labels and title
+        plt.xlabel('Simulation Step')
+        plt.ylabel('Average System Speed (m/s)')
+        plt.title('D3QN Agent vs. Fixed-Time Baseline: Average Speed')
+        plt.legend()
+        plt.grid(True)
+        
+        # Step 4: Save the plot
+        plot_path = os.path.join(output_dir, 'average_speed_comparison.png')
+        plt.savefig(plot_path)
+        print(f"Saved average speed plot to {plot_path}")
+        plt.close()
+    ```
+
+3.  **Call the New Function:** In the `if __name__ == "__main__":` block at the bottom of the script, find the placeholder for your new plot and replace it with a call to your new function.
+
+    **Before:**
+    ```python
+    # --- Plot Average Speed (Placeholder) ---
+    plot_average_speed(rl_sim_csv, baseline_sim_csv, eval_log_dir)
+    ```
+
+    **After:**
+    ```python
+    # --- Plot Average Speed ---
+    plot_average_speed(rl_sim_csv, baseline_sim_csv, eval_log_dir)
+    ```
+    (You would also remove the placeholder implementation from the function itself).
+
+You can follow this same pattern to implement other plots, such as for fuel consumption by parsing the `emissions.xml` file.
