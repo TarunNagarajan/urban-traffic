@@ -57,6 +57,7 @@ REWARD_CONFIG = {
     "pedestrian_wait_penalty": -0.5,
     "jerk_penalty": -0.2, # Penalty for frequent switching
     "virtual_pedestrian_penalty": -0.2, # Penalty for virtual pedestrian waiting time
+    "fuel_consumption_penalty": -0.1, # Penalty for fuel consumption
 }
 
 # Placeholder for GRU-based inflow prediction

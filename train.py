@@ -107,9 +107,9 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors):
     
     return state
 
-def compute_reward(obs, prev_obs):
+def compute_reward(env, obs, prev_obs):
     """
-    Computes a global reward based on the sum of queue lengths across all intersections.
+    Computes a global reward based on the sum of queue lengths, virtual pedestrian waiting time, and fuel consumption.
     """
     total_queue = 0
     virtual_pedestrian_wait = 0
@@ -120,6 +120,12 @@ def compute_reward(obs, prev_obs):
     reward = total_queue * REWARD_CONFIG["queue_length_weight"]
     reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
     
+    # Fuel consumption penalty
+    total_fuel_consumption = 0
+    for veh_id in env.sumo.vehicle.getIDList():
+        total_fuel_consumption += env.sumo.vehicle.getFuelConsumption(veh_id)
+    reward += total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
+
     # Optional: Add jerk penalty for each intersection
     for ts_id in obs.keys():
         if np.argmax(obs[ts_id][PHASE_START:PHASE_END]) != np.argmax(prev_obs[ts_id][PHASE_START:PHASE_END]):
@@ -186,7 +192,7 @@ def train():
 
             next_obs, _, done, _ = env.step(action_dict)
 
-            reward = compute_reward(next_obs, obs)
+            reward = compute_reward(env, next_obs, obs)
             
             for ts_id in ts_ids:
                 next_state = compute_state(net, ts_id, next_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)

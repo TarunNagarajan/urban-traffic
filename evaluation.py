@@ -37,6 +37,7 @@ def run_evaluation(env, net, agent=None, max_neighbors=0, details_output_path=No
                 header.extend([f'{ts_id}_phase', f'{ts_id}_total_queue'])
             writer.writerow(header)
 
+    prev_obs = obs
     while not done["__all__"]:
         if agent is not None:
             action_dict = {}
@@ -56,7 +57,7 @@ def run_evaluation(env, net, agent=None, max_neighbors=0, details_output_path=No
 
         next_obs, _, done, _ = env.step(action_dict)
         
-        reward = compute_reward(next_obs, obs)
+        reward = compute_reward(env, next_obs, prev_obs)
         
         if details_output_path:
             with open(details_output_path, 'a', newline='') as f:
@@ -68,6 +69,7 @@ def run_evaluation(env, net, agent=None, max_neighbors=0, details_output_path=No
                     row.extend([phase, total_queue])
                 writer.writerow(row)
 
+        prev_obs = obs
         obs = next_obs
         step += 1
                 
