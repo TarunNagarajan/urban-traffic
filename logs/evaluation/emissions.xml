@@ -1,0 +1,16 @@
+<emission-export>
+    <timestep time="0.00">
+        <vehicle id="veh0" CO2="100.0" fuel="0.1" />
+        <vehicle id="veh1" CO2="120.0" fuel="0.12" />
+    </timestep>
+    <timestep time="1.00">
+        <vehicle id="veh0" CO2="105.0" fuel="0.105" />
+        <vehicle id="veh1" CO2="125.0" fuel="0.125" />
+        <vehicle id="veh2" CO2="90.0" fuel="0.09" />
+    </timestep>
+    <timestep time="2.00">
+        <vehicle id="veh0" CO2="110.0" fuel="0.11" />
+        <vehicle id="veh2" CO2="95.0" fuel="0.095" />
+        <vehicle id="veh3" CO2="130.0" fuel="0.13" />
+    </timestep>
+</emission-export>

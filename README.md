@@ -79,6 +79,18 @@ To find the best hyperparameters for the agent, run the `tune.py` script.
 python tune.py
 ```
 
+### Developing with Synthetic Data
+
+To facilitate the development of the dashboard and the `plot_statistics.py` script, a set of synthetic data files has been generated in the `logs/evaluation` directory. This allows developers to build and test the data analysis and visualization features without needing to wait for a full training or evaluation run to complete.
+
+To use the synthetic data, simply run the `plot_statistics.py` script directly:
+
+```bash
+python plot_statistics.py
+```
+
+This will use the pre-generated synthetic data to produce the summary statistics and the example rolling reward plot. A developer can modify the `plot_statistics.py` script and re-run it to see the results of the changes on the sample data.
+
 ## Understanding the Simulation Output
 
 When you run any of the scripts that interact with SUMO (`train.py`, `evaluation.py`, `tune.py`), you will see a continuous stream of output from the SUMO engine itself. This provides real-time information about the simulation's performance.
@@ -152,7 +164,7 @@ This XML file contains detailed emission data for every vehicle at every step of
 
 ## Advanced Statistics and Visualization
 
-The `plot_statistics.py` script is provided as a starting point for in-depth analysis. It computes summary statistics and generates a rolling reward plot. It is designed to be easily extended by your team.
+The `plot_statistics.py` script is provided as a starting point for in-depth analysis. It computes summary statistics and generates a rolling reward plot. It is designed to be easily extended.
 
 ### How to Add a New Statistic/Plot
 
