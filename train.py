@@ -5,9 +5,11 @@ import torch
 import sumo_rl
 import sumolib
 from datetime import datetime
+import json
+import argparse
 
 from agent import D3QNAgent
-from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION
+from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG
 
 # --- Constants based on environment inspection ---
 NUM_PHASES = 2
@@ -29,65 +31,41 @@ else:
 def get_neighboring_traffic_lights(net, ts_id):
     """
     Get neighboring traffic light IDs for a given traffic light.
-    
-    Args:
-        net: The sumolib network object
-        ts_id: The traffic light ID
-    
-    Returns:
-        List of neighboring traffic light IDs
     """
     try:
-        # Get the node corresponding to this traffic light
         node = net.getNode(ts_id)
         if node is None:
             return []
         
-        # Get all incoming and outgoing edges from this node
         incoming_edges = node.getIncoming()
         outgoing_edges = node.getOutgoing()
-        
-        # Collect all connected edges
         connected_edges = list(incoming_edges) + list(outgoing_edges)
         
-        # Find nodes at the other end of these edges and check if they have traffic lights
         neighboring_tls = set()
-        
         for edge in connected_edges:
-            # Get the nodes at both ends of the edge
             from_node = edge.getFromNode()
             to_node = edge.getToNode()
             
-            # Check both nodes (excluding the current node)
             for other_node in [from_node, to_node]:
                 if other_node and other_node.getID() != ts_id:
                     other_node_id = other_node.getID()
-                    
-                    # Check if this node has a traffic light
-                    # We can check this by seeing if the node ID exists in our traffic light list
                     if other_node_id in [tls.getID() for tls in net.getTrafficLights()]:
                         neighboring_tls.add(other_node_id)
-        
         return list(neighboring_tls)
-        
     except Exception as e:
         print(f"Warning: Could not find neighbors for {ts_id}: {e}")
         return []
 
 def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors):
     """
-    Computes the state representation from the observation vector, including neighbor data,
-    with padding for generalization.
+    Computes the state representation from the observation vector, including neighbor data.
     """
     local_obs = obs[ts_id]
     phase_one_hot = local_obs[PHASE_START:PHASE_END]
     local_queue = local_obs[QUEUE_START:QUEUE_END]
-    
     state = np.concatenate([local_queue, phase_one_hot])
 
-    # Get neighboring traffic lights using the corrected method
     neighbor_ids = get_neighboring_traffic_lights(net, ts_id)
-    
     num_neighbors = 0
     for neighbor_id in neighbor_ids:
         if neighbor_id in obs:
@@ -97,48 +75,57 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors):
             state = np.concatenate([state, neighbor_queue, neighbor_phase])
             num_neighbors += 1
 
-    # Pad with zeros for remaining potential neighbors
     padding_size = (max_neighbors - num_neighbors) * (NUM_LANES + NUM_PHASES)
     if padding_size > 0:
         state = np.concatenate([state, np.zeros(padding_size)])
 
     predicted_inflow = np.random.rand(gru_stub_dim)
     state = np.concatenate([state, predicted_inflow])
-    
     return state
 
-def compute_reward(env, obs, prev_obs):
+def compute_reward(env, obs, prev_obs, REWARD_CONFIG, prev_arrived):
     """
-    Computes a global reward based on the sum of queue lengths, virtual pedestrian waiting time, and fuel consumption.
+    Computes a global reward based on the chosen configuration.
     """
     reward = 0
-    
-    if REWARD_CONFIG["use_queue_length"]:
+
+    if REWARD_CONFIG.get("use_pressure", False):
+        pressure = 0
+        for ts_id in obs.keys():
+            pressure += env.traffic_signals[ts_id].get_pressure()
+        reward += pressure * REWARD_CONFIG["pressure_weight"]
+
+    if REWARD_CONFIG.get("use_throughput", False):
+        arrived = env.sumo.simulation.getArrivedNumber()
+        throughput = arrived - prev_arrived
+        reward += throughput * REWARD_CONFIG["throughput_weight"]
+
+    if REWARD_CONFIG.get("use_queue_length", False):
         total_queue = 0
         for ts_id in obs.keys():
             total_queue += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
         reward += total_queue * REWARD_CONFIG["queue_length_weight"]
 
-    if REWARD_CONFIG["use_virtual_pedestrian_penalty"]:
+    if REWARD_CONFIG.get("use_virtual_pedestrian_penalty", False):
         virtual_pedestrian_wait = 0
         for ts_id in obs.keys():
-            virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END]) # Heuristic for pedestrian waiting
+            virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
         reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
 
-    if REWARD_CONFIG["use_fuel_consumption_penalty"]:
+    if REWARD_CONFIG.get("use_fuel_consumption_penalty", False):
         total_fuel_consumption = 0
         for veh_id in env.sumo.vehicle.getIDList():
             total_fuel_consumption += env.sumo.vehicle.getFuelConsumption(veh_id)
         reward += total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
 
-    if REWARD_CONFIG["use_jerk_penalty"]:
+    if REWARD_CONFIG.get("use_jerk_penalty", False):
         for ts_id in obs.keys():
             if np.argmax(obs[ts_id][PHASE_START:PHASE_END]) != np.argmax(prev_obs[ts_id][PHASE_START:PHASE_END]):
                 reward += REWARD_CONFIG["jerk_penalty"]
 
     return reward
 
-def train():
+def train(REWARD_CONFIG):
     """Main training loop."""
     log_dir = os.path.join(TRAINING_CONFIG["log_dir"], datetime.now().strftime('%Y%m%d-%H%M%S'))
     os.makedirs(log_dir, exist_ok=True)
@@ -152,7 +139,7 @@ def train():
         num_seconds=SUMO_CONFIG["num_seconds"],
         delta_time=SUMO_CONFIG["delta_time"],
         yellow_time=SUMO_CONFIG["yellow_time"],
-        min_green=SUMO_CONFIG["min_green"],
+        min_green=SUMO_CONFIG.get("min_green", 10),
         max_depart_delay=0
     )
     
@@ -161,7 +148,6 @@ def train():
     initial_obs = env.reset()
     ts_ids = list(initial_obs.keys())
     
-    # Calculate max_neighbors using the corrected method
     max_neighbors = 0
     for ts_id in ts_ids:
         neighbors = get_neighboring_traffic_lights(net, ts_id)
@@ -181,6 +167,7 @@ def train():
         total_reward = 0
         done = {"__all__": False}
         prev_obs = obs
+        prev_arrived = 0
         
         while not done["__all__"]:
             action_dict = {}
@@ -188,24 +175,24 @@ def train():
             meta_actions = {}
             
             for ts_id in ts_ids:
-                # Action masking
                 if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
-                    action_mask = np.array([1, 0]) # Force "hold"
+                    action_mask = np.array([1, 0])
                 else:
-                    action_mask = np.array([1, 1]) # Allow "hold" and "switch"
+                    action_mask = np.array([1, 1])
 
                 states[ts_id] = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
                 meta_actions[ts_id] = agent.act(states[ts_id], epsilon, action_mask)
                 
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
-                if meta_actions[ts_id] == 0: # Hold
+                if meta_actions[ts_id] == 0:
                     action_dict[ts_id] = current_phase
-                else: # Switch
+                else:
                     action_dict[ts_id] = (current_phase + 1) % NUM_PHASES
 
             next_obs, _, done, _ = env.step(action_dict)
 
-            reward = compute_reward(env, next_obs, prev_obs)
+            reward = compute_reward(env, next_obs, prev_obs, REWARD_CONFIG, prev_arrived)
+            prev_arrived = env.sumo.simulation.getArrivedNumber()
             
             for ts_id in ts_ids:
                 next_state = compute_state(net, ts_id, next_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors)
@@ -227,4 +214,16 @@ def train():
     env.close()
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description='Train a D3QN agent for traffic light control.')
+    parser.add_argument('--config', type=str, default='default', help='Name of the reward configuration file to use (without .json extension).')
+    args = parser.parse_args()
+
+    config_path = os.path.join('configs', f'{args.config}.json')
+    if not os.path.exists(config_path):
+        sys.exit(f"Error: Configuration file not found at {config_path}")
+
+    with open(config_path, 'r') as f:
+        REWARD_CONFIG = json.load(f)
+    
+    print(f"--- Using reward configuration: {args.config} ---")
+    train(REWARD_CONFIG)

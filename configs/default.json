@@ -1,0 +1,14 @@
+{
+    "use_queue_length": true,
+    "queue_length_weight": -0.1,
+    "use_jerk_penalty": true,
+    "jerk_penalty": -0.329,
+    "use_virtual_pedestrian_penalty": false,
+    "virtual_pedestrian_penalty": -0.2,
+    "use_fuel_consumption_penalty": false,
+    "fuel_consumption_penalty": -0.1,
+    "use_pressure": false,
+    "pressure_weight": -0.01,
+    "use_throughput": false,
+    "throughput_weight": 1.0
+}
