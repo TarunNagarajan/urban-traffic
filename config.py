@@ -44,7 +44,7 @@ AGENT_CONFIG = {
 
 TRAINING_CONFIG = {
     # Training loop settings
-    "episodes": 1000,  # Number of training episodes
+    "episodes": 200,  # Number of training episodes
     "save_checkpoint_every": 10, # How often to save a checkpoint
     "max_steps": SUMO_CONFIG["num_seconds"] // SUMO_CONFIG["delta_time"], # Max steps per episode
     "log_dir": "logs/", # Directory for logging metrics
