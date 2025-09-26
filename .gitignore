@@ -16,7 +16,7 @@ venv/
 
 # Logs and data output
 logs/
-data/
+
 tuning_results/
 *.csv
 *.xml

@@ -1,3 +1,5 @@
+
+
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -31,9 +33,12 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
     if details_output_path:
         with open(details_output_path, 'w', newline='') as f:
             writer = csv.writer(f)
+            # Write new detailed header
             header = ['step', 'total_reward']
             for ts_id in ts_ids:
                 header.extend([f'{ts_id}_phase', f'{ts_id}_total_queue'])
+                for i, lane in enumerate(env.traffic_signals[ts_id].lanes):
+                    header.append(f'{ts_id}_lane{i}_veh_count')
             writer.writerow(header)
 
     prev_obs = obs
@@ -60,37 +65,37 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
                 meta_action = 0 # Default to HOLD
 
                 # --- Performance Tuning Layer (Prioritized) ---
-                # 1. Check for Phase Commitment
-                if TUNING_CONFIG.get("use_phase_commitment", False) and commitment_counters[ts_id] > 0:
-                    meta_action = 0 # Force HOLD
-                    commitment_counters[ts_id] -= 1
-                else:
-                    # If not committed, let agent decide
-                    # Minimum green time constraint
-                    if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
-                        action_mask = np.array([1, 0])
+                if ts_id in obs:
+                    # 1. Check for Phase Commitment
+                    if TUNING_CONFIG.get("use_phase_commitment", False) and commitment_counters[ts_id] > 0:
+                        meta_action = 0 # Force HOLD
+                        commitment_counters[ts_id] -= 1
                     else:
-                        action_mask = np.array([1, 1])
+                        # If not committed, let agent decide
+                        if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
+                            action_mask = np.array([1, 0])
+                        else:
+                            action_mask = np.array([1, 1])
 
-                    # Get agent's suggested action
-                    temperature = 0.0
-                    if TUNING_CONFIG.get("use_temperature_sampling", False):
-                        temperature = TUNING_CONFIG.get("inference_temperature", 0.0)
-                    
-                    state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
-                    meta_action = agent.act(state, eps=0.0, action_mask=action_mask, temperature=temperature)
-                    
-                    # 2. Apply Switching Cooldown
-                    if TUNING_CONFIG.get("use_switching_cooldown", False) and meta_action == 1:
-                        if env.traffic_signals[ts_id].time_since_last_phase_change < TUNING_CONFIG.get("switching_cooldown_seconds", 0):
-                            meta_action = 0  # Override to HOLD
+                        # Get agent's suggested action
+                        temperature = 0.0
+                        if TUNING_CONFIG.get("use_temperature_sampling", False):
+                            temperature = TUNING_CONFIG.get("inference_temperature", 0.0)
+                        
+                        state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
+                        meta_action = agent.act(state, eps=0.0, action_mask=action_mask, temperature=temperature)
+                        
+                        # 2. Apply Switching Cooldown
+                        if TUNING_CONFIG.get("use_switching_cooldown", False) and meta_action == 1:
+                            if env.traffic_signals[ts_id].time_since_last_phase_change < TUNING_CONFIG.get("switching_cooldown_seconds", 0):
+                                meta_action = 0  # Override to HOLD
 
-                    # 3. Apply Queue Override
-                    if TUNING_CONFIG.get("use_queue_override", False) and meta_action == 0:
-                        queues = obs[ts_id][QUEUE_START:QUEUE_END]
-                        if np.max(queues) > dynamic_queue_threshold:
-                            if action_mask[1] == 1: # Check if switching is allowed
-                               meta_action = 1 # Override to SWITCH
+                        # 3. Apply Queue Override
+                        if TUNING_CONFIG.get("use_queue_override", False) and meta_action == 0:
+                            queues = obs[ts_id][QUEUE_START:QUEUE_END]
+                            if np.max(queues) > dynamic_queue_threshold:
+                                if action_mask[1] == 1: # Check if switching is allowed
+                                   meta_action = 1 # Override to SWITCH
 
                 # Set commitment counter if a switch is happening
                 if meta_action == 1:
@@ -121,8 +126,14 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
                         phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
                         total_queue = np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
                         row.extend([phase, total_queue])
+                        # Add new per-lane vehicle counts
+                        for lane in env.traffic_signals[ts_id].lanes:
+                            row.append(env.sumo.lane.getLastStepVehicleNumber(lane))
                     else:
+                        # Pad with placeholders if ts_id not in obs
                         row.extend([-1, -1])
+                        num_lanes_to_pad = len(env.traffic_signals[ts_id].lanes)
+                        row.extend([-1] * num_lanes_to_pad)
                 writer.writerow(row)
 
         prev_obs = obs
@@ -185,8 +196,8 @@ if __name__ == "__main__":
     os.makedirs(eval_log_dir, exist_ok=True)
 
     env = sumo_rl.SumoEnvironment(
-        net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='data/4x4_diverse.rou.xml',
+        net_file=SUMO_CONFIG["net_file"],
+        route_file=SUMO_CONFIG["route_file"],
         out_csv_name=os.path.join(eval_log_dir, "temp_output.csv"),
         use_gui=False,
         num_seconds=SUMO_CONFIG["num_seconds"],

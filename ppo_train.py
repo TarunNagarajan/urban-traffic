@@ -53,8 +53,8 @@ def train_ppo():
     os.makedirs(os.path.dirname(PPO_TRAIN_CONFIG["model_save_path"]), exist_ok=True)
 
     env = sumo_rl.SumoEnvironment(
-        net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='data/4x4_diverse.rou.xml',
+        net_file=SUMO_CONFIG["net_file"],
+        route_file=SUMO_CONFIG["route_file"],
         out_csv_name=os.path.join(log_dir, "output.csv"),
         use_gui=SUMO_CONFIG["gui"],
         num_seconds=1e6, # Long run for continuous training

@@ -1,4 +1,3 @@
-
 import os
 import sys
 import numpy as np
@@ -11,7 +10,7 @@ import argparse
 import signal
 
 from agent import D3QNAgent
-from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION
+from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION, SCHEDULER_CONFIG
 
 # --- Constants based on environment inspection ---
 NUM_PHASES = 2
@@ -164,15 +163,15 @@ def save_checkpoint(episode, agent, log_dir):
 
 def train(REWARD_CONFIG, checkpoint_path=None, start_episode=1):
     """Main training loop."""
-    TRAINING_CONFIG['episodes'] = 480 # Set total episodes for fine-tuning
+    TRAINING_CONFIG['episodes'] = 500 # Default total episodes
     
     log_dir = os.path.join(TRAINING_CONFIG["log_dir"], datetime.now().strftime('%Y%m%d-%H%M%S'))
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(os.path.dirname(TRAINING_CONFIG["model_save_path"]), exist_ok=True)
 
     env = sumo_rl.SumoEnvironment(
-        net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='data/4x4_diverse.rou.xml',
+        net_file=SUMO_CONFIG["net_file"],
+        route_file=SUMO_CONFIG["route_file"],
         out_csv_name=os.path.join(log_dir, "output.csv"),
         use_gui=SUMO_CONFIG["gui"],
         num_seconds=SUMO_CONFIG["num_seconds"],
@@ -199,6 +198,14 @@ def train(REWARD_CONFIG, checkpoint_path=None, start_episode=1):
 
     agent = D3QNAgent(state_size=AGENT_CONFIG["state_size"], action_size=AGENT_CONFIG["action_size"])
     
+    scheduler = None
+    if SCHEDULER_CONFIG.get("use_lr_scheduler", False):
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            agent.optimizer,
+            step_size=SCHEDULER_CONFIG["step_size"],
+            gamma=SCHEDULER_CONFIG["gamma"]
+        )
+
     if checkpoint_path:
         checkpoint = torch.load(checkpoint_path)
         agent.load_checkpoint(checkpoint)
@@ -260,9 +267,13 @@ def train(REWARD_CONFIG, checkpoint_path=None, start_episode=1):
                 episode_rewards[key] = episode_rewards.get(key, 0) + value
 
         agent.epsilon = max(AGENT_CONFIG["epsilon_end"], AGENT_CONFIG["epsilon_decay"] * agent.epsilon)
+        
+        if scheduler:
+            scheduler.step()
 
         reward_summary = " | ".join([f"{key}: {value:.2f}" for key, value in episode_rewards.items()])
-        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | {reward_summary} | Epsilon: {agent.epsilon:.4f}")
+        current_lr = agent.optimizer.param_groups[0]['lr']
+        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | {reward_summary} | Epsilon: {agent.epsilon:.4f} | LR: {current_lr:.6f}")
 
         if episode_rewards['total_reward'] > best_reward:
             best_reward = episode_rewards['total_reward']
@@ -279,7 +290,11 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default='default', help='Name of the reward configuration file to use (without .json extension).')
     parser.add_argument('--checkpoint_path', type=str, help='Path to a model checkpoint to resume training.')
     parser.add_argument('--start_episode', type=int, default=1, help='Episode to start training from.')
+    parser.add_argument('--episodes', type=int, help='Set the total number of episodes to train for.')
     args = parser.parse_args()
+
+    if args.episodes:
+        TRAINING_CONFIG['episodes'] = args.episodes
 
     config_path = os.path.join('configs', f'{args.config}.json')
     if not os.path.exists(config_path):

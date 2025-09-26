@@ -1,10 +1,11 @@
+
 import torch
 
 SUMO_CONFIG = {
     # Simulation settings
-    "sumo_cfg_file": "path/to/your/sumo.sumocfg",  # Placeholder for SUMO config file
-    "net_file": "path/to/your/net.net.xml", # Placeholder for the network file from OpenStreetMap
-    "route_file": "path/to/your/routes.rou.xml", # Placeholder for the route file
+    "sumo_cfg_file": "nets/4x4.sumocfg",  # Example config file
+    "net_file": "nets/demo.net.xml",        # Network file should be placed in the 'nets' directory
+    "route_file": "data/demo.rou.xml", # Route file should be in the 'data' directory
     "num_seconds": 900,  # Total simulation time in seconds (e.g., 15 minutes)
     "delta_time": 5,  # Time step for agent action (in seconds)
     "yellow_time": 2,  # Duration of yellow light phase
@@ -97,4 +98,10 @@ TUNING_CONFIG = {
 
     "use_temperature_sampling": True,
     "inference_temperature": 0.5
+}
+
+SCHEDULER_CONFIG = {
+    "use_lr_scheduler": True,
+    "step_size": 100, 
+    "gamma": 0.5
 }
