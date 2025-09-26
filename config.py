@@ -6,7 +6,7 @@ SUMO_CONFIG = {
     "sumo_cfg_file": "path/to/your/sumo.sumocfg",  # Placeholder for SUMO config file
     "net_file": "path/to/your/net.net.xml", # Placeholder for the network file from OpenStreetMap
     "route_file": "path/to/your/routes.rou.xml", # Placeholder for the route file
-    "num_seconds": 3600,  # Total simulation time in seconds (e.g., 1 hour)
+    "num_seconds": 900,  # Total simulation time in seconds (e.g., 15 minutes)
     "delta_time": 5,  # Time step for agent action (in seconds)
     "yellow_time": 2,  # Duration of yellow light phase
     "min_green": 10,  # Minimum green time for a phase
