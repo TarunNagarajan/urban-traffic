@@ -10,7 +10,7 @@ SUMO_CONFIG = {
     "delta_time": 5,  # Time step for agent action (in seconds)
     "yellow_time": 2,  # Duration of yellow light phase
     "min_green": 10,  # Minimum green time for a phase
-    "gui": False,  # Set to True to run with SUMO GUI
+    "gui": True,  # Set to True to run with SUMO GUI
     
     # Vehicle classes
     "vehicle_classes": {
