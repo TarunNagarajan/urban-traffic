@@ -1,6 +1,6 @@
 {
     "use_queue_length": true,
-    "queue_length_weight": -0.1,
+    "queue_length_weight": -0.2,
     "use_jerk_penalty": true,
     "jerk_penalty": -0.329,
     "use_virtual_pedestrian_penalty": false,

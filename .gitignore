@@ -1,0 +1,24 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+virtualenv/
+env/
+venv/
+
+# IDE / Editor specific
+.vscode/
+.idea/
+
+# Logs and data output
+logs/
+data/
+tuning_results/
+*.csv
+*.xml
+*.png
+*.pth

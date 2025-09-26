@@ -1,4 +1,3 @@
-
 import torch
 
 SUMO_CONFIG = {
@@ -61,6 +60,19 @@ REWARD_CONFIG = {
     "virtual_pedestrian_penalty": -0.2,
     "use_fuel_consumption_penalty": True,
     "fuel_consumption_penalty": -0.1,
+    "use_pressure": True,
+    "pressure_weight": -0.01,
+    "use_throughput": True,
+    "throughput_weight": 1.0,
+    "use_waiting_time_penalty": False,
+    "waiting_time_penalty": -0.1,
+    "use_stops_penalty": False,
+    "stops_penalty": -0.5,
+    "use_fairness_penalty": False,
+    "fairness_penalty": -0.3,
+    "use_spillback_penalty": False,
+    "spillback_penalty": -10.0,
+    "spillback_threshold": 50,
 }
 
 # Placeholder for GRU-based inflow prediction
@@ -68,4 +80,21 @@ REWARD_CONFIG = {
 STUB_GRU_PREDICTION = {
     "use_stub": True,
     "inflow_dimension": 4 # Example: inflow from 4 directions
+}
+
+TUNING_CONFIG = {
+    "use_switching_cooldown": True,
+    "switching_cooldown_seconds": 20,
+    "use_queue_override": True,
+    "queue_override_threshold": 30,
+
+    "use_adaptive_thresholds": True,
+    "density_regimes": [150, 300], 
+    "queue_override_thresholds": [40, 30, 20],
+
+    "use_phase_commitment": True,
+    "phase_commitment_steps": 2,
+
+    "use_temperature_sampling": True,
+    "inference_temperature": 0.5
 }

@@ -125,13 +125,14 @@ class D3QNAgent:
                 experiences = self.memory.sample()
                 self.learn(experiences, AGENT_CONFIG['gamma'])
 
-    def act(self, state, eps=0., action_mask=None):
+    def act(self, state, eps=0., action_mask=None, temperature=0.0):
         """
         Returns actions for given state as per current policy.
         Args:
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
             action_mask (array_like): mask to apply to the actions
+            temperature (float): temperature for softmax sampling during evaluation
         """
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
@@ -139,19 +140,39 @@ class D3QNAgent:
             action_values = self.qnetwork_local(state)
         self.qnetwork_local.train()
 
-        # Apply action mask
+        # Apply action mask to invalidate actions
         if action_mask is not None:
-            # Convert numpy mask to torch tensor and reshape to match action_values
             action_mask_tensor = torch.from_numpy(action_mask).bool().unsqueeze(0).to(self.device)
-            action_values[~action_mask_tensor] = -1e8 # Mask invalid actions
+            action_values[~action_mask_tensor] = -1e8
 
-        # Epsilon-greedy action selection
-        if random.random() > eps:
-            return np.argmax(action_values.cpu().data.numpy())
-        else:
+        # Action selection
+        if random.random() > eps: # Evaluation mode (or greedy step in training)
+            if temperature > 0:
+                # Temperature-based softmax sampling
+                probs = F.softmax(action_values / temperature, dim=1).cpu().data.numpy().flatten()
+                # Ensure masked actions have zero probability
+                if action_mask is not None:
+                    probs = probs * action_mask
+                    if np.sum(probs) > 0:
+                        probs /= np.sum(probs) # Re-normalize
+                    else: # If all valid actions were masked, fall back to uniform random over valid
+                        valid_actions = np.where(action_mask == 1)[0]
+                        if len(valid_actions) > 0:
+                            return random.choice(valid_actions)
+                        else: # If no actions are valid, return a default action (e.g., 0)
+                            return 0
+
+                return np.random.choice(np.arange(self.action_size), p=probs)
+            else:
+                # Greedy action
+                return np.argmax(action_values.cpu().data.numpy())
+        else: # Training mode with exploration
             # Choose from valid actions only
             valid_actions = np.where(action_mask == 1)[0] if action_mask is not None else np.arange(self.action_size)
-            return random.choice(valid_actions)
+            if len(valid_actions) > 0:
+                return random.choice(valid_actions)
+            else:
+                return 0 # Default action if no valid actions
 
     def learn(self, experiences, gamma):
         """
@@ -201,3 +222,10 @@ class D3QNAgent:
     def save(self, path):
         """Save the model."""
         torch.save(self.qnetwork_local.state_dict(), path)
+
+    def load_checkpoint(self, checkpoint):
+        """Load a training checkpoint."""
+        self.qnetwork_local.load_state_dict(checkpoint['model_state_dict'])
+        self.qnetwork_target.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.epsilon = checkpoint['epsilon']

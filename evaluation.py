@@ -10,13 +10,14 @@ import json
 import argparse
 
 from agent import D3QNAgent
-from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, STUB_GRU_PREDICTION
+from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION, TUNING_CONFIG
 # Import functions from train.py
 from train import compute_state, get_neighboring_traffic_lights, compute_reward, NUM_PHASES, PHASE_START, PHASE_END, QUEUE_START, QUEUE_END
 
 def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details_output_path=None):
     """
     Runs a single evaluation loop for a given environment and agent/baseline.
+    Returns a dictionary with the detailed reward breakdown.
     """
     obs = env.reset()
     done = {"__all__": False}
@@ -24,29 +25,78 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
     
     step = 0
     prev_arrived = 0
+    episode_rewards = {}
+    commitment_counters = {ts_id: 0 for ts_id in ts_ids}
     
     if details_output_path:
         with open(details_output_path, 'w', newline='') as f:
             writer = csv.writer(f)
-            header = ['step', 'reward']
+            header = ['step', 'total_reward']
             for ts_id in ts_ids:
                 header.extend([f'{ts_id}_phase', f'{ts_id}_total_queue'])
             writer.writerow(header)
 
     prev_obs = obs
     while not done["__all__"]:
+        # Determine dynamic queue threshold based on traffic density
+        if TUNING_CONFIG.get("use_adaptive_thresholds", False):
+            num_vehicles = env.sumo.vehicle.getIDCount()
+            regimes = TUNING_CONFIG.get("density_regimes", [150, 300])
+            thresholds = TUNING_CONFIG.get("queue_override_thresholds", [40, 30, 20])
+            
+            if num_vehicles < regimes[0]: # Low density
+                dynamic_queue_threshold = thresholds[0]
+            elif num_vehicles < regimes[1]: # Medium density
+                dynamic_queue_threshold = thresholds[1]
+            else: # High density
+                dynamic_queue_threshold = thresholds[2]
+        else:
+            dynamic_queue_threshold = TUNING_CONFIG.get("queue_override_threshold", 50)
+
         if agent is not None:
             action_dict = {}
             for ts_id in ts_ids:
-                if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
-                    action_mask = np.array([1, 0])
-                else:
-                    action_mask = np.array([1, 1])
-
-                state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
-                meta_action = agent.act(state, eps=0.0, action_mask=action_mask)
-                
                 current_phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
+                meta_action = 0 # Default to HOLD
+
+                # --- Performance Tuning Layer (Prioritized) ---
+                # 1. Check for Phase Commitment
+                if TUNING_CONFIG.get("use_phase_commitment", False) and commitment_counters[ts_id] > 0:
+                    meta_action = 0 # Force HOLD
+                    commitment_counters[ts_id] -= 1
+                else:
+                    # If not committed, let agent decide
+                    # Minimum green time constraint
+                    if env.traffic_signals[ts_id].time_since_last_phase_change < env.traffic_signals[ts_id].min_green:
+                        action_mask = np.array([1, 0])
+                    else:
+                        action_mask = np.array([1, 1])
+
+                    # Get agent's suggested action
+                    temperature = 0.0
+                    if TUNING_CONFIG.get("use_temperature_sampling", False):
+                        temperature = TUNING_CONFIG.get("inference_temperature", 0.0)
+                    
+                    state = compute_state(net, ts_id, obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env)
+                    meta_action = agent.act(state, eps=0.0, action_mask=action_mask, temperature=temperature)
+                    
+                    # 2. Apply Switching Cooldown
+                    if TUNING_CONFIG.get("use_switching_cooldown", False) and meta_action == 1:
+                        if env.traffic_signals[ts_id].time_since_last_phase_change < TUNING_CONFIG.get("switching_cooldown_seconds", 0):
+                            meta_action = 0  # Override to HOLD
+
+                    # 3. Apply Queue Override
+                    if TUNING_CONFIG.get("use_queue_override", False) and meta_action == 0:
+                        queues = obs[ts_id][QUEUE_START:QUEUE_END]
+                        if np.max(queues) > dynamic_queue_threshold:
+                            if action_mask[1] == 1: # Check if switching is allowed
+                               meta_action = 1 # Override to SWITCH
+
+                # Set commitment counter if a switch is happening
+                if meta_action == 1:
+                    commitment_counters[ts_id] = TUNING_CONFIG.get("phase_commitment_steps", 1)
+
+                # Translate meta-action to environment action
                 if meta_action == 0:
                     action_dict[ts_id] = current_phase
                 else:
@@ -56,24 +106,30 @@ def run_evaluation(env, net, REWARD_CONFIG, agent=None, max_neighbors=0, details
 
         next_obs, _, done, _ = env.step(action_dict)
         
-        reward = compute_reward(env, next_obs, prev_obs, REWARD_CONFIG, prev_arrived)
+        reward_info = compute_reward(env, next_obs, prev_obs, REWARD_CONFIG, prev_arrived)
         prev_arrived = env.sumo.simulation.getArrivedNumber()
+
+        for key, value in reward_info.items():
+            episode_rewards[key] = episode_rewards.get(key, 0) + value
         
         if details_output_path:
             with open(details_output_path, 'a', newline='') as f:
                 writer = csv.writer(f)
-                row = [step, reward]
+                row = [step, reward_info['total_reward']]
                 for ts_id in ts_ids:
-                    phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
-                    total_queue = np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
-                    row.extend([phase, total_queue])
+                    if ts_id in obs:
+                        phase = np.argmax(obs[ts_id][PHASE_START:PHASE_END])
+                        total_queue = np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
+                        row.extend([phase, total_queue])
+                    else:
+                        row.extend([-1, -1])
                 writer.writerow(row)
 
         prev_obs = obs
         obs = next_obs
         step += 1
                 
-    return env.out_csv_name
+    return env.out_csv_name, episode_rewards
 
 def plot_results(rl_csv, baseline_csv, log_dir):
     """
@@ -112,6 +168,7 @@ def plot_results(rl_csv, baseline_csv, log_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Evaluate a D3QN agent for traffic light control.')
     parser.add_argument('--config', type=str, default='default', help='Name of the reward configuration file to use (without .json extension).')
+    parser.add_argument('--checkpoint_path', type=str, required=True, help='Path to a model checkpoint for evaluation.')
     args = parser.parse_args()
 
     config_path = os.path.join('configs', f'{args.config}.json')
@@ -158,23 +215,28 @@ if __name__ == "__main__":
     state_size = compute_state(net, first_ts_id, initial_obs, STUB_GRU_PREDICTION["inflow_dimension"], max_neighbors, env).shape[0]
     
     agent = D3QNAgent(state_size=state_size, action_size=AGENT_CONFIG["action_size"])
-    model_path = TRAINING_CONFIG["model_save_path"]
+    model_path = args.checkpoint_path
     
     rl_csv_path = None
     if os.path.exists(model_path):
-        agent.qnetwork_local.load_state_dict(torch.load(model_path))
+        checkpoint = torch.load(model_path)
+        agent.qnetwork_local.load_state_dict(checkpoint['model_state_dict'])
         env.out_csv_name = os.path.join(eval_log_dir, "d3qn_results.csv")
         rl_details_path = os.path.join(eval_log_dir, "d3qn_details.csv")
-        rl_csv_path = run_evaluation(env, net, REWARD_CONFIG, agent, max_neighbors, rl_details_path)
+        rl_csv_path, episode_rewards = run_evaluation(env, net, REWARD_CONFIG, agent, max_neighbors, rl_details_path)
         print(f"D3QN Agent evaluation complete. Results saved to {rl_csv_path}")
+        print("\n--- Agent Performance Breakdown ---")
+        reward_summary = " | ".join([f"{key}: {value:.2f}" for key, value in episode_rewards.items()])
+        print(reward_summary)
+
     else:
-        print(f"Error: Model not found at {model_path}. Please run train.py first.")
+        print(f"Error: Model not found at {model_path}.")
 
     # --- Fixed-Time Baseline Evaluation ---
-    print("Evaluating Fixed-Time Baseline...")
+    print("\nEvaluating Fixed-Time Baseline...")
     env.out_csv_name = os.path.join(eval_log_dir, "baseline_results.csv")
     baseline_details_path = os.path.join(eval_log_dir, "baseline_details.csv")
-    baseline_csv_path = run_evaluation(env, net, REWARD_CONFIG, agent=None, details_output_path=baseline_details_path)
+    baseline_csv_path, _ = run_evaluation(env, net, REWARD_CONFIG, agent=None, details_output_path=baseline_details_path)
     print(f"Baseline evaluation complete. Results saved to {baseline_csv_path}")
 
     # --- Plotting ---
