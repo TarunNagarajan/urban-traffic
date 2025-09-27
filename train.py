@@ -1,3 +1,4 @@
+
 import os
 import sys
 import numpy as np
@@ -98,45 +99,55 @@ def compute_state(net, ts_id, obs, gru_stub_dim, max_neighbors, env):
 
 def compute_reward(env, obs, prev_obs, REWARD_CONFIG, prev_arrived):
     """
-    Computes a global reward based on the chosen configuration.
+    Computes a global reward and its components based on the chosen configuration.
     """
-    reward = 0
+    reward_info = {}
+    total_reward = 0
 
     if REWARD_CONFIG.get("use_pressure", False):
         pressure = 0
         for ts_id in obs.keys():
             pressure += env.traffic_signals[ts_id].get_pressure()
-        reward += pressure * REWARD_CONFIG["pressure_weight"]
+        reward_info['pressure'] = pressure * REWARD_CONFIG["pressure_weight"]
+        total_reward += reward_info['pressure']
 
     if REWARD_CONFIG.get("use_throughput", False):
         arrived = env.sumo.simulation.getArrivedNumber()
         throughput = arrived - prev_arrived
-        reward += throughput * REWARD_CONFIG["throughput_weight"]
+        reward_info['throughput'] = throughput * REWARD_CONFIG["throughput_weight"]
+        total_reward += reward_info['throughput']
 
     if REWARD_CONFIG.get("use_queue_length", False):
         total_queue = 0
         for ts_id in obs.keys():
             total_queue += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
-        reward += total_queue * REWARD_CONFIG["queue_length_weight"]
+        reward_info['queue_length'] = total_queue * REWARD_CONFIG["queue_length_weight"]
+        total_reward += reward_info['queue_length']
 
     if REWARD_CONFIG.get("use_virtual_pedestrian_penalty", False):
         virtual_pedestrian_wait = 0
         for ts_id in obs.keys():
             virtual_pedestrian_wait += np.sum(obs[ts_id][QUEUE_START:QUEUE_END])
-        reward += virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
+        reward_info['virtual_pedestrian_penalty'] = virtual_pedestrian_wait * REWARD_CONFIG["virtual_pedestrian_penalty"]
+        total_reward += reward_info['virtual_pedestrian_penalty']
 
     if REWARD_CONFIG.get("use_fuel_consumption_penalty", False):
         total_fuel_consumption = 0
         for veh_id in env.sumo.vehicle.getIDList():
             total_fuel_consumption += env.sumo.vehicle.getFuelConsumption(veh_id)
-        reward += total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
+        reward_info['fuel_consumption'] = total_fuel_consumption * REWARD_CONFIG["fuel_consumption_penalty"]
+        total_reward += reward_info['fuel_consumption']
 
     if REWARD_CONFIG.get("use_jerk_penalty", False):
+        jerk_penalty = 0
         for ts_id in obs.keys():
             if np.argmax(obs[ts_id][PHASE_START:PHASE_END]) != np.argmax(prev_obs[ts_id][PHASE_START:PHASE_END]):
-                reward += REWARD_CONFIG["jerk_penalty"]
-
-    return reward
+                jerk_penalty += REWARD_CONFIG["jerk_penalty"]
+        reward_info['jerk_penalty'] = jerk_penalty
+        total_reward += jerk_penalty
+    
+    reward_info['total_reward'] = total_reward
+    return reward_info
 
 def save_checkpoint(episode, agent, log_dir):
     """
@@ -147,12 +158,14 @@ def save_checkpoint(episode, agent, log_dir):
         'episode': episode,
         'model_state_dict': agent.qnetwork_local.state_dict(),
         'optimizer_state_dict': agent.optimizer.state_dict(),
-        'epsilon': agent.epsilon, # Assuming epsilon is tracked in the agent
+        'epsilon': agent.epsilon,
     }, checkpoint_path)
     print(f"\nCheckpoint saved to {checkpoint_path}")
 
-def train(REWARD_CONFIG):
+def train(REWARD_CONFIG, checkpoint_path=None, start_episode=1):
     """Main training loop."""
+    TRAINING_CONFIG['episodes'] = 480 # Set total episodes for fine-tuning
+    
     log_dir = os.path.join(TRAINING_CONFIG["log_dir"], datetime.now().strftime('%Y%m%d-%H%M%S'))
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(os.path.dirname(TRAINING_CONFIG["model_save_path"]), exist_ok=True)
@@ -185,6 +198,12 @@ def train(REWARD_CONFIG):
     AGENT_CONFIG["state_size"] = state_size
 
     agent = D3QNAgent(state_size=AGENT_CONFIG["state_size"], action_size=AGENT_CONFIG["action_size"])
+    
+    if checkpoint_path:
+        checkpoint = torch.load(checkpoint_path)
+        agent.load_checkpoint(checkpoint)
+        print(f"Resumed training from checkpoint: {checkpoint_path}")
+
     best_reward = -np.inf
 
     def signal_handler(sig, frame):
@@ -195,9 +214,11 @@ def train(REWARD_CONFIG):
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    for episode in range(1, TRAINING_CONFIG["episodes"] + 1):
+    for episode in range(start_episode, TRAINING_CONFIG["episodes"] + 1):
         obs = env.reset()
-        total_reward = 0
+        
+        episode_rewards = {}
+
         done = {"__all__": False}
         prev_obs = obs
         prev_arrived = 0
@@ -224,7 +245,8 @@ def train(REWARD_CONFIG):
 
             next_obs, _, done, _ = env.step(action_dict)
 
-            reward = compute_reward(env, next_obs, prev_obs, REWARD_CONFIG, prev_arrived)
+            reward_info = compute_reward(env, next_obs, prev_obs, REWARD_CONFIG, prev_arrived)
+            reward = reward_info['total_reward']
             prev_arrived = env.sumo.simulation.getArrivedNumber()
             
             for ts_id in ts_ids:
@@ -233,14 +255,17 @@ def train(REWARD_CONFIG):
 
             prev_obs = obs
             obs = next_obs
-            total_reward += reward
+            
+            for key, value in reward_info.items():
+                episode_rewards[key] = episode_rewards.get(key, 0) + value
 
         agent.epsilon = max(AGENT_CONFIG["epsilon_end"], AGENT_CONFIG["epsilon_decay"] * agent.epsilon)
 
-        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | Total Reward: {total_reward:.2f} | Epsilon: {agent.epsilon:.4f}")
+        reward_summary = " | ".join([f"{key}: {value:.2f}" for key, value in episode_rewards.items()])
+        print(f"Episode {episode}/{TRAINING_CONFIG['episodes']} | {reward_summary} | Epsilon: {agent.epsilon:.4f}")
 
-        if total_reward > best_reward:
-            best_reward = total_reward
+        if episode_rewards['total_reward'] > best_reward:
+            best_reward = episode_rewards['total_reward']
             agent.save(TRAINING_CONFIG["model_save_path"])
             print(f"New best model saved with reward: {best_reward:.2f}")
 
@@ -252,6 +277,8 @@ def train(REWARD_CONFIG):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a D3QN agent for traffic light control.')
     parser.add_argument('--config', type=str, default='default', help='Name of the reward configuration file to use (without .json extension).')
+    parser.add_argument('--checkpoint_path', type=str, help='Path to a model checkpoint to resume training.')
+    parser.add_argument('--start_episode', type=int, default=1, help='Episode to start training from.')
     args = parser.parse_args()
 
     config_path = os.path.join('configs', f'{args.config}.json')
@@ -262,4 +289,4 @@ if __name__ == "__main__":
         REWARD_CONFIG = json.load(f)
     
     print(f"--- Using reward configuration: {args.config} ---")
-    train(REWARD_CONFIG)
+    train(REWARD_CONFIG, checkpoint_path=args.checkpoint_path, start_episode=args.start_episode)
