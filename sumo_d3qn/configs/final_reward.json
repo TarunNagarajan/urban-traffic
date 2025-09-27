@@ -1,0 +1,12 @@
+{
+    "use_queue_length": true,
+    "queue_length_weight": -0.2,
+    "use_jerk_penalty": true,
+    "jerk_penalty": -0.1,
+    "use_waiting_time_penalty": true,
+    "waiting_time_penalty": -0.15,
+    "use_throughput": true,
+    "throughput_weight": 0.5,
+    "use_stops_penalty": true,
+    "stops_penalty": -0.1
+}
