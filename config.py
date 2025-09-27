@@ -1,23 +1,19 @@
+
 import torch
 
 SUMO_CONFIG = {
-    # Simulation settings
-    "sumo_cfg_file": "path/to/your/sumo.sumocfg",  # Placeholder for SUMO config file
-    "net_file": "path/to/your/net.net.xml", # Placeholder for the network file from OpenStreetMap
-    "route_file": "path/to/your/routes.rou.xml", # Placeholder for the route file
-    "num_seconds": 900,  # Total simulation time in seconds (e.g., 15 minutes)
-    "delta_time": 5,  # Time step for agent action (in seconds)
-    "yellow_time": 2,  # Duration of yellow light phase
-    "min_green": 10,  # Minimum green time for a phase
-    "gui": False,  # Set to True to run with SUMO GUI
+    # Simulation settings for the 4x4 Grid Demonstration
+    "net_file": "C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml",
+    "route_file": "C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.rou.xml",
+    "num_seconds": 900,
+    "delta_time": 5,
+    "yellow_time": 2,
+    "min_green": 10,
+    "gui": True,  # GUI Enabled for Demonstration
     
     # Vehicle classes
     "vehicle_classes": {
-        "car": {"vClass": "passenger", "speedDev": 0.1, "laneChangeModel": "LC2013"},
-        "motorcycle": {"vClass": "motorcycle", "speedDev": 0.2},
-        "bus": {"vClass": "bus", "speedDev": 0.1},
-        "bicycle": {"vClass": "bicycle", "speedDev": 0.3},
-        "pedestrian": {"vClass": "pedestrian", "speedDev": 0.1} # Note: Pedestrian modeling is more complex
+        "car": {"vClass": "passenger"}
     }
 }
 
@@ -97,4 +93,10 @@ TUNING_CONFIG = {
 
     "use_temperature_sampling": True,
     "inference_temperature": 0.5
+}
+
+SCHEDULER_CONFIG = {
+    "use_lr_scheduler": True,
+    "step_size": 100, 
+    "gamma": 0.5
 }
