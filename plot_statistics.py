@@ -33,47 +33,76 @@ def plot_rolling_reward(rl_details_csv, baseline_details_csv, output_dir):
     plt.grid(True)
     plot_path = os.path.join(output_dir, 'rolling_reward_comparison.png')
     plt.savefig(plot_path)
+    plt.show()
     print(f"Saved rolling reward plot to {plot_path}")
     plt.close()
 
 def plot_average_speed(rl_sim_csv, baseline_sim_csv, output_dir):
-    """
-    Placeholder function to plot average system speed.
-    Your teammate can implement this.
-    """
-    print("\nSkipping average speed plot (not implemented).")
-    # Example implementation hint:
-    # rl_df = pd.read_csv(rl_sim_csv, sep=';')
-    # baseline_df = pd.read_csv(baseline_sim_csv, sep=';')
-    # plt.plot(rl_df['step'], rl_df['system_mean_speed'], label='D3QN Agent')
-    # ... (complete the plotting logic)
+    rl_df = pd.read_csv(rl_sim_csv)
+    baseline_df = pd.read_csv(baseline_sim_csv)
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(rl_df['step'], rl_df['system_mean_speed'].rolling(window=10).mean(), label='D3QN Agent')
+    plt.plot(baseline_df['step'], baseline_df['system_mean_speed'].rolling(window=10).mean(), label='Fixed-Time Baseline')
+    plt.xlabel('Simulation Step')
+    plt.ylabel('Average speed(m/s)')
+    plt.title('D3QN Agent vs. Fixed-Time Baseline:Average Speed' )
+    plt.legend()
+    plt.grid(True)
+    plot_path = os.path.join(output_dir, 'avg_speed_comparison.png')
+    plt.savefig(plot_path)
+    plt.show()
+    print(f"Saved avg speed plot to {plot_path}")
+    plt.close()
 
 def plot_fuel_consumption(emissions_xml, output_dir):
-    """
-    Placeholder function to plot fuel consumption.
-    Your teammate can implement this.
-    """
-    print("Skipping fuel consumption plot (not implemented).")
-    # Example implementation hint:
-    # tree = ET.parse(emissions_xml)
-    # root = tree.getroot()
-    # fuel_data = []
-    # for timestep in root.findall('timestep'):
-    #     time = float(timestep.get('time'))
-    #     total_fuel = 0
-    #     vehicle_count = 0
-    #     for vehicle in timestep.findall('vehicle'):
-    #         total_fuel += float(vehicle.get('fuel'))
-    #         vehicle_count += 1
-    #     if vehicle_count > 0:
-    #         avg_fuel = total_fuel / vehicle_count
-    #         fuel_data.append({'time': time, 'avg_fuel': avg_fuel})
-    # ... (process and plot the data)
+    tree=ET.parse(emissions_xml)
+    root=tree.getroot()
+    
+    fuel_data=[]
+    times=[]
+    for timestep in root.findall('timestep'):
+        time = float(timestep.get('time'))
+        total_fuel = 0
+        vehicle_count = 0
 
+        # Loop over vehicles in this timestep
+        for vehicle in timestep.findall('vehicle'):
+            fuel = vehicle.get('fuel')
+            if fuel is not None:   # Some vehicles might not have "fuel" field
+                total_fuel += float(fuel)
+                vehicle_count += 1
+
+        # Compute average if there were vehicles
+        if vehicle_count > 0:
+            avg_fuel = total_fuel / vehicle_count
+            fuel_data.append(avg_fuel)
+            times.append(time)
+
+    # --- Plotting ---
+    if len(fuel_data) == 0:
+        print("No fuel data found in emissions.xml, skipping plot.")
+        return
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(times, fuel_data, label='Average Fuel Consumption per Vehicle')
+    plt.xlabel('Simulation Time (s)')
+    plt.ylabel('Average Fuel Consumption')
+    plt.title('Average Fuel Consumption Over Time')
+    plt.legend()
+    plt.grid(True)
+
+    # Save plot
+    plot_path = os.path.join(output_dir, 'fuel_consumption.png')
+    plt.savefig(plot_path)
+    plt.show()
+    print(f"Saved fuel consumption plot to {plot_path}")
+    plt.close()
+    
 
 if __name__ == "__main__":
     # Directory where the evaluation output is stored
-    eval_log_dir = "logs/evaluation"
+    eval_log_dir = "logs/20250924-174852"
 
     # --- File Paths ---
     rl_details_csv = os.path.join(eval_log_dir, "d3qn_details.csv")

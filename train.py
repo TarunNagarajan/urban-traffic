@@ -9,6 +9,8 @@ from datetime import datetime
 import json
 import argparse
 import signal
+from pathlib import Path
+import importlib.resources as pkg_resources
 
 from agent import D3QNAgent
 from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION
@@ -169,10 +171,11 @@ def train(REWARD_CONFIG, checkpoint_path=None, start_episode=1):
     log_dir = os.path.join(TRAINING_CONFIG["log_dir"], datetime.now().strftime('%Y%m%d-%H%M%S'))
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(os.path.dirname(TRAINING_CONFIG["model_save_path"]), exist_ok=True)
+    base_path = pkg_resources.files('sumo_rl') / 'nets' / '4x4-Lucas'
 
     env = sumo_rl.SumoEnvironment(
-        net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='data/4x4_diverse.rou.xml',
+        net_file = str(base_path / '4x4.net.xml'),
+        route_file = str(base_path / '4x4c1.rou.xml'),
         out_csv_name=os.path.join(log_dir, "output.csv"),
         use_gui=SUMO_CONFIG["gui"],
         num_seconds=SUMO_CONFIG["num_seconds"],

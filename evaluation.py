@@ -5,9 +5,12 @@ import sumo_rl
 import sumolib
 import torch
 import numpy as np
+import sys
 import csv
 import json
 import argparse
+from pathlib import Path
+import importlib.resources as pkg_resources
 
 from agent import D3QNAgent
 from config import SUMO_CONFIG, AGENT_CONFIG, TRAINING_CONFIG, REWARD_CONFIG, STUB_GRU_PREDICTION, TUNING_CONFIG
@@ -183,10 +186,12 @@ if __name__ == "__main__":
     log_dir = TRAINING_CONFIG["log_dir"]
     eval_log_dir = os.path.join(log_dir, "evaluation")
     os.makedirs(eval_log_dir, exist_ok=True)
+    base_path = pkg_resources.files('sumo_rl') / 'nets' / '4x4-Lucas'
 
     env = sumo_rl.SumoEnvironment(
-        net_file='C:/Users/ultim/anaconda3/envs/metaworld-cpu/lib/site-packages/sumo_rl/nets/4x4-Lucas/4x4.net.xml',
-        route_file='data/4x4_diverse.rou.xml',
+
+        net_file = str(base_path / '4x4.net.xml'),
+        route_file = str(base_path / '4x4c1.rou.xml'),
         out_csv_name=os.path.join(eval_log_dir, "temp_output.csv"),
         use_gui=False,
         num_seconds=SUMO_CONFIG["num_seconds"],
@@ -195,6 +200,7 @@ if __name__ == "__main__":
         min_green=SUMO_CONFIG.get("min_green", 10),
         max_depart_delay=0,
         additional_sumo_cmd=f"--emission-output {os.path.join(eval_log_dir, 'emissions.xml')}"
+    
     )
     
     net = sumolib.net.readNet(env._net)
