@@ -118,8 +118,8 @@ if __name__ == '__main__':
     parser.add_argument('--resume', type=str, help='Path to the checkpoint file to resume training from.')
     args = parser.parse_args()
 
-    env = CommunicatingSumoEnvironment(net_file='C:/Users/ultim/sumo_d3qn/Bhubaneswar.net.xml',
-                                     route_file='C:/Users/ultim/sumo_d3qn/Bhubaneswar.rou.xml',
+    env = CommunicatingSumoEnvironment(net_file='Bhubaneswar.net.xml',
+                                     route_file='Bhubaneswar.rou.xml',
                                      out_csv_name='outputs/bhubaneswar_d3qn',
                                      use_gui=False,
                                      num_seconds=10800,  # 3 hours

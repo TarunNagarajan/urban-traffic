@@ -309,9 +309,9 @@ if __name__ == "__main__":
 
     # Initialize a dummy environment to get ts_ids and observation/action spaces
     # This environment will be closed and re-initialized in run_evaluation
-    temp_env = sumo_rl.SumoEnvironment(
-        net_file=SUMO_CONFIG["net_file"],
-        route_file=SUMO_CONFIG["route_file"],
+    temp_env = CommunicatingSumoEnvironment( # Changed to CommunicatingSumoEnvironment
+        net_file='Bhubaneswar.net.xml', # Relative path
+        route_file='Bhubaneswar.rou.xml', # Relative path
         out_csv_name=os.path.join(eval_log_dir, "temp_init.csv"),
         num_seconds=1, # Short duration for initialization
         delta_time=SUMO_CONFIG["delta_time"],
