@@ -65,3 +65,26 @@ The `evaluation.py` script performs a full, comparative analysis. Here is a brea
 *   With both simulations complete, the script reads the two CSV files it just created.
 *   It extracts the final `system_total_waiting_time` from both files and prints a side-by-side comparison to the console, including the percentage improvement.
 *   Finally, it uses the data from both CSVs to generate and save the comparison plots for waiting time and queue length.
+
+## Vehicle Position Data for Frontend Visualization
+
+The `evaluation.py` script now generates a detailed `_vehicle_positions.csv` file. This file contains per-vehicle position, speed, angle, lane, and type information for each simulation step. This data can be used to visualize vehicle movements on a custom frontend at a high frame rate (e.g., 60fps).
+
+**CSV Structure:**
+
+*   `sim_step`: The current simulation step.
+*   `vehicle_id`: Unique identifier for the vehicle.
+*   `x`, `y`: X and Y coordinates of the vehicle in the SUMO simulation environment.
+*   `speed`: Current speed of the vehicle.
+*   `angle`: Current angle of the vehicle.
+*   `lane`: The ID of the lane the vehicle is currently on.
+*   `type`: The type of the vehicle.
+
+**Processing for Frontend:**
+
+To display this data at 60fps, you would typically:
+
+1.  Load the `_vehicle_positions.csv` file into your frontend application.
+2.  Parse the CSV data, grouping vehicle positions by `sim_step`.
+3.  For each frame (corresponding to a `sim_step`), iterate through the vehicles and render them at their respective `(x, y)` coordinates.
+4.  Interpolate between `sim_step`s if your frontend's frame rate is higher than the simulation's `delta_time` to achieve smoother animation.
