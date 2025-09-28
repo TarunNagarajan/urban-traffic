@@ -122,7 +122,7 @@ if __name__ == '__main__':
                                      route_file='Bhubaneswar.rou.xml',
                                      out_csv_name='outputs/bhubaneswar_d3qn',
                                      use_gui=False,
-                                     num_seconds=10800,  # 3 hours
+                                     num_seconds=900,  # 15 minutes
                                      yellow_time=3,
                                      min_green=5,
                                      max_green=60,

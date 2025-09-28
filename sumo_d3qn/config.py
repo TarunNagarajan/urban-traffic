@@ -28,15 +28,15 @@ AGENT_CONFIG = {
     "gamma": 0.9958,  # Discount factor
     "lr": 0.0003,  # Learning rate
     "tau": 1e-3,  # For soft update of target parameters
-    "update_every": 4,  # How often to update the network
+    "update_every": 8,  # How often to update the network
     "epsilon_start": 1.0,  # Starting value of epsilon
     "epsilon_end": 0.01,  # Minimum value of epsilon
     "epsilon_decay": 0.995,  # Epsilon decay rate
     "device": "cuda" if torch.cuda.is_available() else "cpu",
 
     # Dueling DQN Network
-    "fc1_units": 128,
-    "fc2_units": 128,
+    "fc1_units": 64,
+    "fc2_units": 64,
 }
 
 TRAINING_CONFIG = {
