@@ -1,213 +1,187 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { IntersectionVisualization } from './IntersectionVisualization'
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { SumoMap } from './SumoMap';
 
-type Intersection = {
-  id: string
-  phase: number
-  totalQueue: number
-}
+// --- Types to match the new CSV structure ---
+type VehicleData = {
+  simulation_time_s: number;
+  vehicle_id: string;
+  x_coord_m: number;
+  y_coord_m: number;
+  current_intersection_id: string | null;
+  intersection_queue_length_veh: number | null;
+  waiting_time_s: number;
+};
 
-type StreamPayload = {
-  done: boolean
-  intersections: Intersection[]
-}
+type Mode = 'LIVE' | 'PLAYBACK';
 
-const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + (location.hostname + ':8000') + '/ws'
+// --- Constants ---
+const API_BASE_URL = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000/ws/simulation-stream';
 
+// --- Helper Components ---
+type ControlButtonProps = {
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+  disabled?: boolean;
+  children: React.ReactNode;
+};
+
+const ControlButton: React.FC<ControlButtonProps> = ({ onClick, disabled, children }) => (
+  <button onClick={onClick} disabled={disabled} style={{ margin: '0 5px' }}>
+    {children}
+  </button>
+);
+
+const TimeSlider = ({ time, maxTime, onTimeChange }) => (
+  <input
+    type="range"
+    min="0"
+    max={maxTime}
+    value={time}
+    onChange={(e) => onTimeChange(Number(e.target.value))}
+    style={{ width: '100%' }}
+  />
+);
+
+const AnalysisPanel = ({ vehicles }: { vehicles: VehicleData[] }) => {
+    const vehiclesAtIntersection = vehicles.filter(v => v.current_intersection_id && v.current_intersection_id !== '');
+    const intersectionData = vehiclesAtIntersection[0];
+
+    return (
+        <div>
+            <h3>Analysis</h3>
+            {intersectionData ? (
+                <>
+                    <p><strong>Intersection ID:</strong> {intersectionData.current_intersection_id}</p>
+                    <p><strong>Queue Length:</strong> {intersectionData.intersection_queue_length_veh} vehicles</p>
+                    <p><strong>Max Waiting Time:</strong> {Math.max(...vehicles.map(v => v.waiting_time_s)).toFixed(2)}s</p>
+                </>
+            ) : (
+                <p>No vehicles at an intersection currently.</p>
+            )}
+            <p><strong>Vehicles at Intersection:</strong> {vehiclesAtIntersection.length}</p>
+            <p><strong>Total Visible Vehicles:</strong> {vehicles.length}</p>
+        </div>
+    );
+};
+
+// --- Main Dashboard Component ---
 export function Dashboard(): JSX.Element {
-  const [connected, setConnected] = useState(false)
-  const [running, setRunning] = useState(false)
-  const [demoMode, setDemoMode] = useState(false)
-  const [csvMode, setCsvMode] = useState(false)
-  const [data, setData] = useState<StreamPayload | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const demoTimerRef = useRef<number | null>(null)
-  const csvTimerRef = useRef<number | null>(null)
-  const csvFramesRef = useRef<StreamPayload[]>([])
+  const [mode, setMode] = useState<Mode>('PLAYBACK');
+  const [historicalData, setHistoricalData] = useState<VehicleData[]>([]);
+  const [liveData, setLiveData] = useState<VehicleData | null>(null);
+  const [currentTimeStep, setCurrentTimeStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const ws = useRef<WebSocket | null>(null);
 
-  const startSim = async () => {
-    await fetch('http://localhost:8000/start', { method: 'POST' })
-    setRunning(true)
-  }
+  const timeSteps = useMemo(() => {
+      const uniqueTimes = [...new Set(historicalData.map(d => d.simulation_time_s))];
+      return uniqueTimes.sort((a, b) => a - b);
+  }, [historicalData]);
 
-  const stopSim = async () => {
-    await fetch('http://localhost:8000/stop', { method: 'POST' })
-    setRunning(false)
-  }
-
-  // Live backend stream
+  // Fetch historical data
   useEffect(() => {
-    if (demoMode || csvMode) return
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
-    ws.onopen = () => setConnected(true)
-    ws.onclose = () => setConnected(false)
-    ws.onerror = () => setConnected(false)
-    ws.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as StreamPayload
-      setData(payload)
-      if (payload.done) setRunning(false)
-    }
-    return () => ws.close()
-  }, [demoMode, csvMode])
+    fetch(`${API_BASE_URL}/api/historical-data`)
+      .then((res) => res.json())
+      .then((data) => setHistoricalData(data))
+      .catch(console.error);
+  }, []);
 
-  // Demo mode generator
+  // WebSocket for live mode
   useEffect(() => {
-    if (!demoMode) {
-      if (demoTimerRef.current) window.clearInterval(demoTimerRef.current)
-      return
+    if (mode === 'LIVE') {
+      ws.current = new WebSocket(WS_URL);
+      ws.current.onmessage = (event) => {
+        const newData = JSON.parse(event.data);
+        setLiveData(newData);
+        const timeIndex = timeSteps.indexOf(newData.simulation_time_s);
+        if (timeIndex !== -1) setCurrentTimeStep(timeIndex);
+      };
+      return () => ws.current?.close();
     }
-    setConnected(true)
-    setRunning(true)
-    let step = 0
-    let intersections: Intersection[] = [
-      { id: 'gneJ0', phase: 0, totalQueue: 3 },
-      { id: 'gneJ1', phase: 1, totalQueue: 8 },
-      { id: 'gneJ2', phase: 0, totalQueue: 4 },
-      { id: 'gneJ3', phase: 1, totalQueue: 6 },
-    ]
-    const tick = () => {
-      step += 1
-      intersections = intersections.map((i) => {
-        const delta = Math.round((Math.random() - 0.4) * 3)
-        const newQueue = Math.max(0, i.totalQueue + delta)
-        const switchPhase = Math.random() < 0.25
-        return {
-          ...i,
-          totalQueue: newQueue,
-          phase: switchPhase ? (i.phase === 0 ? 1 : 0) : i.phase,
+  }, [mode, timeSteps]);
+
+  // Playback timer
+  useEffect(() => {
+    if (mode === 'PLAYBACK' && isPlaying && timeSteps.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentTimeStep((prev) => (prev + 1) % timeSteps.length);
+      }, 1000 / playbackSpeed);
+      return () => clearInterval(interval);
+    }
+  }, [isPlaying, playbackSpeed, mode, timeSteps]);
+
+  const vehiclesAtCurrentTime = useMemo(() => {
+    const currentSimTime = timeSteps[currentTimeStep];
+    if (mode === 'LIVE' && liveData) {
+        // In a true live scenario, you might want to accumulate data
+        return [liveData];
+    }
+    return historicalData.filter(d => d.simulation_time_s === currentSimTime);
+  }, [mode, liveData, currentTimeStep, historicalData, timeSteps]);
+
+  const intersectionData = useMemo(() => {
+    const intersectionsMap = new Map<string, { id: string; phase: number; totalQueue: number }>();
+    vehiclesAtCurrentTime.forEach(vehicle => {
+      if (vehicle.current_intersection_id && vehicle.current_intersection_id !== '') {
+        if (!intersectionsMap.has(vehicle.current_intersection_id)) {
+          intersectionsMap.set(vehicle.current_intersection_id, {
+            id: vehicle.current_intersection_id,
+            phase: 0, // Mock phase
+            totalQueue: vehicle.intersection_queue_length_veh || 0,
+          });
         }
-      })
-      setData({ done: false, intersections })
-    }
-    tick()
-    demoTimerRef.current = window.setInterval(tick, 1000)
-    return () => {
-      if (demoTimerRef.current) window.clearInterval(demoTimerRef.current)
-    }
-  }, [demoMode])
-
-  // CSV playback mode
-  useEffect(() => {
-    if (!csvMode) {
-      if (csvTimerRef.current) window.clearInterval(csvTimerRef.current)
-      return
-    }
-    setConnected(true)
-    setRunning(!!csvFramesRef.current.length)
-    let idx = 0
-    const tick = () => {
-      if (!csvFramesRef.current.length) return
-      setData(csvFramesRef.current[idx])
-      idx = (idx + 1) % csvFramesRef.current.length
-    }
-    tick()
-    csvTimerRef.current = window.setInterval(tick, 1000)
-    return () => {
-      if (csvTimerRef.current) window.clearInterval(csvTimerRef.current)
-    }
-  }, [csvMode])
-
-  const onPickCsv = async (file: File) => {
-    const text = await file.text()
-    // Basic CSV parsing (comma separated). Details CSV format:
-    // step,reward, <ts_id>_phase, <ts_id>_total_queue, ...
-    const lines = text.trim().split(/\r?\n/)
-    if (lines.length < 2) return
-    const header = lines[0].split(',').map((h) => h.trim())
-    const tsIds: string[] = []
-    for (let i = 0; i < header.length; i++) {
-      const h = header[i]
-      if (h.endsWith('_total_queue')) {
-        tsIds.push(h.replace('_total_queue', ''))
       }
-    }
-    const frames: StreamPayload[] = []
-    for (let li = 1; li < lines.length; li++) {
-      const cols = lines[li].split(',')
-      const intersections: Intersection[] = tsIds.map((id) => {
-        const phaseIdx = header.indexOf(id + '_phase')
-        const queueIdx = header.indexOf(id + '_total_queue')
-        const phase = phaseIdx >= 0 ? Number(cols[phaseIdx] ?? 0) : 0
-        const totalQueue = queueIdx >= 0 ? Number(cols[queueIdx] ?? 0) : 0
-        return { id, phase, totalQueue }
-      })
-      frames.push({ done: false, intersections })
-    }
-    csvFramesRef.current = frames
-    setCsvMode(true)
-    setDemoMode(false)
-    setRunning(!!frames.length)
-  }
-
-  const totalQueue = useMemo(() => {
-    if (!data) return 0
-    return data.intersections.reduce((acc, i) => acc + i.totalQueue, 0)
-  }, [data])
+    });
+    return Array.from(intersectionsMap.values());
+  }, [vehiclesAtCurrentTime]);
 
   return (
-    <div style={{ fontFamily: 'Inter, system-ui, Arial', padding: 16, lineHeight: 1.4 }}>
-      <h2 style={{ margin: 0 }}>Urban Traffic Simulator</h2>
-      <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span>Server: {connected ? 'Connected' : 'Disconnected'}</span>
-        <button onClick={startSim} disabled={demoMode || csvMode || !connected || running}>Start</button>
-        <button onClick={stopSim} disabled={demoMode || csvMode || !connected || !running}>Stop</button>
-        <span style={{ marginLeft: 8, color: '#666' }}>|</span>
-        <button
-          onClick={() => setDemoMode((v) => !v)}
-          title="Toggle demo data (no backend required)"
-        >
-          {demoMode ? 'Exit Demo' : 'Demo Mode'}
-        </button>
-        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ color: '#666' }}>| CSV Playback:</span>
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) onPickCsv(f)
-            }}
-          />
-          {csvMode && (
-            <button onClick={() => { setCsvMode(false); setRunning(false) }}>Stop CSV</button>
-          )}
-        </label>
-      </div>
-
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
-        <div style={{ border: '1px solid #ddd', padding: 12, borderRadius: 8 }}>
-          <h3 style={{ marginTop: 0 }}>System Metrics</h3>
-          <div>Intersections: {data?.intersections.length ?? 0}</div>
-          <div>Total Queue: {totalQueue.toFixed(0)}</div>
+    <div style={{ padding: '20px' }}>
+      <h1>SUMO Traffic Simulation Dashboard</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '20px' }}>
+        <div>
+          <h2>Simulation View</h2>
+          <SumoMap vehicles={vehiclesAtCurrentTime} width={800} height={600} />
         </div>
-
-        <div style={{ border: '1px solid #ddd', padding: 12, borderRadius: 8 }}>
-          <h3 style={{ marginTop: 0 }}>Intersections</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-            {data?.intersections.map((i) => (
-              <div key={i.id} style={{ border: '1px solid #eee', borderRadius: 8, padding: 10 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{i.id}</div>
-                <div>Phase: {i.phase}</div>
-                <div>Queue: {i.totalQueue.toFixed(0)}</div>
-                <div style={{ height: 6, background: '#f1f1f1', borderRadius: 3, marginTop: 8 }}>
-                  <div style={{ width: Math.min(100, i.totalQueue * 5) + '%', height: '100%', background: '#3b82f6', borderRadius: 3 }} />
+        <div>
+          <h2>Controls & Analysis</h2>
+          <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px' }}>
+            <button onClick={() => setMode(m => m === 'LIVE' ? 'PLAYBACK' : 'LIVE')}>
+              Switch to {mode === 'LIVE' ? 'Playback' : 'Live'} Mode
+            </button>
+            <hr style={{ margin: '15px 0' }} />
+            <h3>{mode} Mode</h3>
+            {mode === 'PLAYBACK' && (
+              <>
+                <TimeSlider 
+                  time={currentTimeStep} 
+                  maxTime={timeSteps.length - 1} 
+                  onTimeChange={setCurrentTimeStep} 
+                />
+                <p>Time: {timeSteps[currentTimeStep]}s</p>
+                <div>
+                  <ControlButton onClick={() => setIsPlaying(!isPlaying)} disabled={timeSteps.length === 0}>
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </ControlButton>
+                  <label>
+                    Speed:
+                    <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))}>
+                      <option value={0.5}>0.5x</option>
+                      <option value={1}>1x</option>
+                      <option value={2}>2x</option>
+                    </select>
+                  </label>
                 </div>
-              </div>
-            ))}
+              </>
+            )}
+            {mode === 'LIVE' && <p>Watching live data stream...</p>}
+          </div>
+          <div style={{ marginTop: '20px', border: '1px solid #ddd', padding: '15px', borderRadius: '8px' }}>
+            <AnalysisPanel vehicles={vehiclesAtCurrentTime} />
           </div>
         </div>
       </div>
-
-      <div style={{ marginTop: 16 }}>
-        <IntersectionVisualization 
-          intersections={data?.intersections || []} 
-          width={800} 
-          height={400}
-        />
-      </div>
     </div>
-  )
+  );
 }
-
-
