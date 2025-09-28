@@ -19,6 +19,6 @@ logs/
 
 tuning_results/
 *.csv
-*.xml
+# *.xml
 *.png
 *.pth
