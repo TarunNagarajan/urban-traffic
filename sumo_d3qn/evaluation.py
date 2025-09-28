@@ -307,8 +307,9 @@ if __name__ == "__main__":
     eval_log_dir = os.path.abspath(os.path.join("logs", "final_4x4_evaluation", datetime.now().strftime('%Y%m%d-%H%M%S')))
     os.makedirs(eval_log_dir, exist_ok=True)
 
-    # Initialize a dummy environment to get ts_ids and observation/action spaces
+    # Initialize a dummy CommunicatingSumoEnvironment to get ts_ids and observation/action spaces
     # This environment will be closed and re-initialized in run_evaluation
+    # Use the same net_file and route_file as training for consistency
     temp_env = CommunicatingSumoEnvironment( # Changed to CommunicatingSumoEnvironment
         net_file='Bhubaneswar.net.xml', # Relative path
         route_file='Bhubaneswar.rou.xml', # Relative path
@@ -317,9 +318,12 @@ if __name__ == "__main__":
         delta_time=SUMO_CONFIG["delta_time"],
         single_agent=False,
         fixed_ts=False,
-        use_gui=False
+        use_gui=False,
+        reward_fn=custom_reward_function # Add reward_fn for CommunicatingSumoEnvironment
     )
-    ts_ids = temp_env.ts_ids
+    # Call reset to initialize neighbors and get actual state sizes
+    initial_states = temp_env.reset()
+    ts_ids = list(initial_states.keys())
     temp_env.close()
 
     # --- D3QN Agent Evaluation ---
@@ -329,7 +333,10 @@ if __name__ == "__main__":
         for ts_id in ts_ids:
             model_file = os.path.join(args.model_path, f"d3qn_agent_{ts_id}.pth")
             if os.path.exists(model_file):
-                agent = D3QNAgent(state_size=temp_env.observation_space(ts_id).shape[0], action_size=temp_env.action_space(ts_id).n)
+                # Get state_size from initial_states (from temp_env.reset() call)
+                state_size = initial_states[ts_id].shape[0]
+                action_size = temp_env.action_space.n # Action space is consistent
+                agent = D3QNAgent(state_size=state_size, action_size=action_size)
                 agent.qnetwork_local.load_state_dict(torch.load(model_file))
                 agent.qnetwork_local.eval() # Set to evaluation mode
                 agents[ts_id] = agent
