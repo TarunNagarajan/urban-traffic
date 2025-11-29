@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-09-27 20:36:29 by Eclipse SUMO netconvert Version 1.24.0
+<netconvertConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <type-files value="${SUMO_HOME}\data\typemap\osmNetconvert.typ.xml,${SUMO_HOME}\data\typemap\osmNetconvertAerialway.typ.xml"/>
+        <osm-files value="osm_bbox.osm.xml.gz"/>
+    </input>
+
+    <output>
+        <output-file value="osm.net.xml.gz"/>
+        <output.street-names value="true"/>
+        <output.original-names value="true"/>
+        <ptstop-output value="osm_stops.add.xml"/>
+        <ptline-output value="osm_ptlines.xml"/>
+        <ptline-clean-up value="true"/>
+    </output>
+
+    <projection>
+        <proj value="+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs"/>
+    </projection>
+
+    <processing>
+        <geometry.remove value="true"/>
+        <roundabouts.guess value="true"/>
+        <lefthand value="true"/>
+    </processing>
+
+    <tls_building>
+        <tls.discard-simple value="true"/>
+        <tls.join value="true"/>
+        <tls.guess-signals value="true"/>
+        <tls.default-type value="actuated"/>
+    </tls_building>
+
+    <ramp_guessing>
+        <ramps.guess value="true"/>
+    </ramp_guessing>
+
+    <edge_removal>
+        <keep-edges.by-vclass value="passenger,bus,tram,rail_urban,subway,cable_car,rail"/>
+    </edge_removal>
+
+    <junctions>
+        <junctions.join value="true"/>
+        <junctions.corner-detail value="5"/>
+    </junctions>
+
+    <railway>
+        <railway.topology.repair value="true"/>
+    </railway>
+
+</netconvertConfiguration>
+-->
+
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <busStop id="12196567524" name="Bhubaneshwar" lane="1317827991_0" startPos="117.12" endPos="317.12" friendlyPos="true" lines="22824 22812">
+        <access lane="-26754164#0_0" pos="37.33" length="52.22" friendlyPos="1"/>
+        <access lane="-26754164#1_0" pos="212.08" length="93.51" friendlyPos="1"/>
+        <access lane="-26754189#0_0" pos="26.03" length="95.34" friendlyPos="1"/>
+        <access lane="26754164#0_0" pos="115.60" length="57.02" friendlyPos="1"/>
+        <access lane="26754189#0_0" pos="0.00" length="91.98" friendlyPos="1"/>
+    </busStop>
+    <busStop id="12196567531" name="Bhubaneshwar" lane="90623157#0_0" startPos="193.95" endPos="393.95" friendlyPos="true" lines="20818">
+        <access lane="-26754164#0_0" pos="36.69" length="82.54" friendlyPos="1"/>
+        <access lane="-26754164#1_0" pos="212.08" length="112.60" friendlyPos="1"/>
+        <access lane="26754164#0_0" pos="116.24" length="87.34" friendlyPos="1"/>
+        <access lane="26754164#1_0" pos="0.00" length="116.17" friendlyPos="1"/>
+        <access lane="26754189#0_0" pos="0.00" length="115.03" friendlyPos="1"/>
+    </busStop>
+    <busStop id="12196567534" name="Bhubaneshwar" lane="395892024#2_0" startPos="272.36" endPos="472.36" friendlyPos="true" lines="22811 22823 20817">
+        <access lane="-170090977#0_0" pos="10.92" length="88.74" friendlyPos="1"/>
+        <access lane="-170090977#1_0" pos="133.46" length="93.04" friendlyPos="1"/>
+        <access lane="-90622235#3_0" pos="381.95" length="83.94" friendlyPos="1"/>
+        <access lane="170090977#1_0" pos="0.00" length="88.43" friendlyPos="1"/>
+        <access lane="875755093#0_0" pos="0.00" length="113.28" friendlyPos="1"/>
+    </busStop>
+</additional>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-09-27 20:36:32 by Eclipse SUMO sumo Version 1.24.0
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\osm.net.xml.gz"/>
+        <route-files value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\trips.trips.xml"/>
+        <additional-files value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\osm_stops.add.xml"/>
+    </input>
+
+    <output>
+        <vehroute-output value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\vehroutes.xml"/>
+        <stop-output value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\stopinfos.xml"/>
+    </output>
+
+    <time>
+        <begin value="0.0"/>
+    </time>
+
+    <processing>
+        <ignore-route-errors value="true"/>
+        <time-to-teleport.disconnected value="0"/>
+    </processing>
+
+    <routing>
+        <device.rerouting.adaptation-interval value="0"/>
+    </routing>
+
+    <report>
+        <aggregate-warnings value="5"/>
+        <error-log value="C:\Users\AkshayVishnu\Sumo\2025-09-27-20-36-19\trips.trips.xml.errorlog"/>
+        <no-step-log value="true"/>
+    </report>
+
+</sumoConfiguration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <vehicle id="0_train_22811:0" type="pt_train" depart="15.00" departLane="0" arrival="216.00">
+        <route edges="395892024#2 1317827988#0 1317827988#1 241131804"/>
+        <stop busStop="12196567534" duration="30.00"/>
+    </vehicle>
+
+    <vehicle id="1_train_22823:0" type="pt_train" depart="216.00" departLane="0" arrival="417.00">
+        <route edges="395892024#2 1317827988#0 1317827988#1 241131804"/>
+        <stop busStop="12196567534" duration="30.00"/>
+    </vehicle>
+
+    <vehicle id="3_train_22824:0" type="pt_train" depart="383.00" departLane="0" arrival="540.00">
+        <route edges="90623152 1317827984 1317827983 724789488 -1317827982 1317827991"/>
+        <stop busStop="12196567524" duration="30.00"/>
+    </vehicle>
+
+    <vehicle id="2_train_20817:0" type="pt_train" depart="417.00" departLane="0" arrival="618.00">
+        <route edges="395892024#2 1317827988#0 1317827988#1 241131804"/>
+        <stop busStop="12196567534" duration="30.00"/>
+    </vehicle>
+
+    <vehicle id="4_train_22812:0" type="pt_train" depart="540.00" departLane="0" arrival="697.00">
+        <route edges="90623152 1317827984 1317827983 724789488 -1317827982 1317827991"/>
+        <stop busStop="12196567524" duration="30.00"/>
+    </vehicle>
+
+    <vehicle id="5_train_20818:0" type="pt_train" depart="645.00" departLane="0" arrival="802.00">
+        <route edges="90623152 1317827984 1317827983 90623157#0"/>
+        <stop busStop="12196567531" duration="30.00"/>
+    </vehicle>
+
+</routes>
