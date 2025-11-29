@@ -4,3 +4,5 @@ pandas
 matplotlib
 sumo-rl
 optuna
+fastapi
+uvicorn
