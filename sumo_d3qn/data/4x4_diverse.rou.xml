@@ -1,0 +1,48 @@
+<routes>
+
+    <vType id="car" vClass="passenger" sigma="0.5" decel="4.5" accel="2.6" minGap="2.5" maxSpeed="13.89" guiShape="passenger"/>
+    <vType id="truck" vClass="truck" sigma="0.5" decel="3.0" accel="1.5" minGap="3.0" maxSpeed="10.0" guiShape="truck"/>
+    <vType id="bus" vClass="bus" sigma="0.5" decel="3.0" accel="1.5" minGap="3.0" maxSpeed="10.0" guiShape="bus"/>
+    <vType id="motorcycle" vClass="motorcycle" sigma="0.5" decel="4.0" accel="3.0" minGap="1.0" maxSpeed="16.67" guiShape="motorcycle"/>
+
+    <flow id="0_car" from="16to0" to="12to24" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="0_truck" from="16to0" to="12to24" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="0_bus" from="16to0" to="12to24" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="0_motorcycle" from="16to0" to="12to24" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="1_car" from="17to1" to="13to25" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="1_truck" from="17to1" to="13to25" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="1_bus" from="17to1" to="13to25" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="1_motorcycle" from="17to1" to="13to25" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="2_car" from="18to2" to="14to26" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="2_truck" from="18to2" to="14to26" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="2_bus" from="18to2" to="14to26" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="2_motorcycle" from="18to2" to="14to26" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="3_car" from="19to3" to="15to27" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="3_truck" from="19to3" to="15to27" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="3_bus" from="19to3" to="15to27" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="3_motorcycle" from="19to3" to="15to27" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="4_car" from="20to0" to="3to28" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="4_truck" from="20to0" to="3to28" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="4_bus" from="20to0" to="3to28" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="4_motorcycle" from="20to0" to="3to28" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="5_car" from="21to4" to="7to29" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="5_truck" from="21to4" to="7to29" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="5_bus" from="21to4" to="7to29" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="5_motorcycle" from="21to4" to="7to29" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="6_car" from="22to8" to="11to30" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="6_truck" from="22to8" to="11to30" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="6_bus" from="22to8" to="11to30" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="6_motorcycle" from="22to8" to="11to30" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+    <flow id="7_car" from="23to12" to="15to31" begin="0" end="20000" probability="0.0525" departSpeed="max" departPos="base" departLane="best" type="car"/>
+    <flow id="7_truck" from="23to12" to="15to31" begin="0" end="20000" probability="0.0175" departSpeed="max" departPos="base" departLane="best" type="truck"/>
+    <flow id="7_bus" from="23to12" to="15to31" begin="0" end="20000" probability="0.035" departSpeed="max" departPos="base" departLane="best" type="bus"/>
+    <flow id="7_motorcycle" from="23to12" to="15to31" begin="0" end="20000" probability="0.245" departSpeed="max" departPos="base" departLane="best" type="motorcycle"/>
+
+</routes>

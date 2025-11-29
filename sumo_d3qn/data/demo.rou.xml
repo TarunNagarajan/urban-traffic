@@ -1,0 +1,7 @@
+<routes>
+    <vType id="car" vClass="passenger" length="5" minGap="2.5" maxSpeed="25" />
+
+    <flow id="flow_ns" type="car" from="-1043333229" to="-1065135127" begin="0" end="100000" period="5" />
+    <flow id="flow_ew" type="car" from="-1065135128#1" to="-1043333231#0" begin="0" end="100000" period="5" />
+
+</routes>
